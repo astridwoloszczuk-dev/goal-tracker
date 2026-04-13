@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goal Tracker">
+<title>Goal Tracker</title>
+<script src="garmin_status.js" onerror="window.GARMIN=null"></script>
+<script>
+function garminBadge(sessionName){
+  if(!window.GARMIN) return '';
+  const todayKey=new Date().toISOString().slice(0,10);
+  if(window.GARMIN.date!==todayKey) return '';
+  // Support new format (readiness.sessions) with fallback to old format
+  let st, reason='';
+  if(window.GARMIN.readiness&&window.GARMIN.readiness.sessions&&window.GARMIN.readiness.sessions[sessionName]){
+    st=window.GARMIN.readiness.sessions[sessionName].status;
+    reason=window.GARMIN.readiness.sessions[sessionName].reason||'';
+  } else if(window.GARMIN.metrics&&window.GARMIN.metrics.session_status){
+    st=window.GARMIN.metrics.session_status[sessionName];
+  } else return '';
+  const s='position:absolute;top:1px;right:2px;font-size:8px;line-height:1;pointer-events:none';
+  const tip=reason?` title="${reason.replace(/"/g,'&quot;')}"` :'';
+  if(st==='good')    return `<span style="${s}"${tip}>⭐</span>`;
+  if(st==='caution') return `<span style="${s}"${tip}>❓</span>`;
+  if(st==='poor')    return `<span style="${s};color:#f87171"${tip}>✗</span>`;
+  return '';
+}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--sf:#161b22;--s2:#1c2330;
+  --b1:rgba(255,255,255,0.08);--b2:rgba(255,255,255,0.18);
+  --tx:#e6edf3;--mu:#7d8590;--ac:#c8a96e;
+  --gn:#4ade80;--gn2:#86efac;--ye:#fbbf24;--rd:#f87171;--bl:#60a5fa;--pu:#c084fc;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;color:var(--tx);background:var(--bg);padding-bottom:84px;min-height:100vh}
+.nav{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:1px solid var(--b1);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nb{flex:1;padding:10px 2px 8px;border:none;background:none;color:var(--mu);font-size:9px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+.nb.on{color:var(--ac)}
+.nb svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:2}
+.hdr{padding:14px 16px 10px;border-bottom:1px solid var(--b1)}
+.hdr h1{font-size:18px;font-weight:700}
+.hdr p{font-size:12px;color:var(--mu);margin-top:2px}
+.pg{display:none;padding:12px 16px}
+.pg.on{display:block}
+.card{background:var(--sf);border:1px solid var(--b1);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.ct{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--mu);margin-bottom:10px;font-weight:600}
+.cr{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--b1)}
+.cr:last-child{border-bottom:none}
+.cr input[type=checkbox]{width:18px;height:18px;flex-shrink:0;margin-top:2px;accent-color:var(--ac)}
+.cl{flex:1;font-size:14px;line-height:1.4}
+.cl.done{color:var(--mu);text-decoration:line-through}
+.bw{font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(251,191,36,.12);color:var(--ye);flex-shrink:0}
+.bi{font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(96,165,250,.12);color:var(--bl);flex-shrink:0}
+.bd{font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(248,113,113,.15);color:var(--rd);flex-shrink:0}
+.good{color:var(--gn)}.warn{color:var(--ye)}.bad{color:var(--rd)}
+select,input[type=text],input[type=number],input[type=date],textarea{
+  width:100%;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;
+  background:var(--s2);color:var(--tx);font-size:14px;font-family:inherit;-webkit-appearance:none}
+textarea{resize:vertical;min-height:60px}
+.fr{margin-bottom:10px}
+.fr label{display:block;font-size:11px;color:var(--mu);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.dl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--mu);margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--b1)}
+.btn{padding:10px 16px;border:1px solid var(--b2);border-radius:8px;background:transparent;color:var(--tx);cursor:pointer;font-size:14px;font-weight:600}
+.btnp{background:var(--ac);color:#0d1117;border-color:transparent}
+.btnb{background:var(--bl);color:#0d1117;border-color:transparent}
+.btns{padding:6px 12px;font-size:12px;border-radius:6px}
+.btnd{color:var(--rd);border-color:rgba(248,113,113,.3)}
+.rbtns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+.dstrip::-webkit-scrollbar{display:none}
+.dbtn{flex-shrink:0;padding:6px 10px;border:1px solid var(--b1);border-radius:8px;background:transparent;color:var(--mu);cursor:pointer;text-align:center;min-width:46px}
+.dbtn.on{background:var(--ac);color:#0d1117;border-color:transparent;font-weight:700}
+.dbtn.tod{border-color:var(--ac)}
+.ddot{width:5px;height:5px;border-radius:50%;margin:3px auto 0;background:var(--b1)}
+.dbtn.has .ddot{background:var(--gn)}
+/* STATUS BARS */
+.sbars{margin-bottom:14px}
+.srow{margin-bottom:10px}
+.slbl{font-size:10px;color:var(--mu);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.slots{display:flex;gap:5px}
+.slot{flex:1;height:26px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;transition:all .2s;position:relative;overflow:hidden}
+.slot.d1{background:rgba(134,239,172,.2);border-color:#86efac;color:#86efac}
+.slot.d2{background:rgba(74,222,128,.35);border-color:#4ade80;color:#4ade80;font-weight:700}
+/* WEEK BAR ROWS */
+.wbar-row{margin-bottom:12px}
+.wbar-label{font-size:11px;color:var(--mu);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;font-weight:600;display:flex;justify-content:space-between}
+.wbar-slots{display:flex;gap:4px}
+.wslot{flex:1;height:32px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent;user-select:none;position:relative}
+.wslot .wday{font-size:8px;color:var(--mu);line-height:1}
+.wslot .wval{font-size:9px;line-height:1;margin-top:2px}
+.wslot.done{background:rgba(74,222,128,.25);border-color:#4ade80}
+.wslot.done .wday{color:#4ade80}
+.wslot.done .wval{color:#4ade80}
+.wslot.extra{background:rgba(74,222,128,.45);border-color:#4ade80}
+.wslot.extra .wday{color:#4ade80}
+.wslot.extra .wval{color:#4ade80;font-weight:700}
+.wslot.today-slot{border-color:var(--ac)}
+.wslot.alc1{background:rgba(255,220,50,.2);border-color:#ffd932}
+.wslot.alc1 .wday,.wslot.alc1 .wval{color:#ffd932}
+.wslot.alc2{background:rgba(255,185,0,.25);border-color:#ffb900}
+.wslot.alc2 .wday,.wslot.alc2 .wval{color:#ffb900}
+.wslot.alc3{background:rgba(255,130,0,.25);border-color:#ff8200}
+.wslot.alc3 .wday,.wslot.alc3 .wval{color:#ff8200}
+.wslot.alc4{background:rgba(235,80,0,.28);border-color:#eb5000}
+.wslot.alc4 .wday,.wslot.alc4 .wval{color:#eb5000}
+.wslot.alc5{background:rgba(248,113,113,.3);border-color:#f87171}
+.wslot.alc5 .wday,.wslot.alc5 .wval{color:#f87171}
+/* SESSION LOG */
+.sitem{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:8px 10px;margin-top:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.sitem-txt{flex:1;font-size:13px;line-height:1.4}
+.sitem-del{color:var(--rd);border:none;background:none;font-size:16px;cursor:pointer;padding:0;flex-shrink:0;line-height:1}
+.earea{background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px;margin-top:6px}
+.earea label{font-size:11px;color:var(--mu);display:block;margin-bottom:4px}
+/* ROUNDS */
+.rrow{padding:10px 0;border-bottom:1px solid var(--b1)}
+.rrow:last-child{border-bottom:none}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.mc{background:var(--sf);border:1px solid var(--b1);border-radius:10px;padding:10px;text-align:center}
+.mv{font-size:20px;font-weight:700}
+.ml{font-size:10px;color:var(--mu);margin-top:3px}
+.ebox{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px;font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:280px;overflow-y:auto;margin-top:10px;line-height:1.5}
+/* HOLE BOXES */
+.hole-box{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.hole-hdr{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--mu);font-weight:600;margin-bottom:8px}
+.hole-r1{display:flex;gap:10px;align-items:flex-end;margin-bottom:8px}
+.hole-r2{display:flex;gap:5px;flex-wrap:wrap}
+.hole-nf{display:flex;flex-direction:column;gap:3px}
+.hole-lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px}
+.hole-num{width:56px;padding:6px 4px;font-size:20px;font-weight:700;text-align:center;border:1px solid var(--b2);border-radius:7px;background:var(--bg);color:var(--tx);-webkit-appearance:none;-moz-appearance:textfield}
+.hole-num::-webkit-inner-spin-button,.hole-num::-webkit-outer-spin-button{-webkit-appearance:none}
+.hole-fw{display:flex;align-items:center;gap:6px;padding-bottom:2px}
+.hole-toggle{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:5px 8px;border:1px solid var(--b2);border-radius:6px;cursor:pointer;background:var(--bg);-webkit-tap-highlight-color:transparent;user-select:none}
+.hole-toggle input{width:17px;height:17px;accent-color:var(--ac)}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>🎯 Goal Tracker</h1><p id="hdate"></p></div>
+<div id="pg-today" class="pg on"></div>
+<div id="pg-week" class="pg"></div>
+<div id="pg-rounds" class="pg"></div>
+<div id="pg-analytics" class="pg"></div>
+<div id="pg-export" class="pg"></div>
+<nav class="nav">
+  <button class="nb on" onclick="go('today')" id="nb-today"><svg viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>This Week</button>
+  <button class="nb" onclick="go('rounds')" id="nb-rounds"><svg viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Runden</button>
+  <button class="nb" onclick="go('analytics')" id="nb-analytics"><svg viewBox="0 0 24 24"><path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16"/></svg>Trends</button>
+  <button class="nb" onclick="go('export')" id="nb-export"><svg viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Export</button>
+</nav>
+<script>
+const DAYFULL=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const DAYS=['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+const CATS=[
+  {id:'round',label:'Rounds',col:'#c8a96e',opts:[
+    {id:'comp18',label:'Competitive 18 Hole',type:'game',slot:'Round',extra:null},
+    {id:'comp9',label:'Competitive 9 Hole',type:'game',slot:'Round',extra:null},
+    {id:'match',label:'Match',type:'game',slot:'Round',extra:null},
+    {id:'pracround',label:'Practice Round',type:'game',slot:'Round',extra:null},
+  ]},
+  {id:'range',label:'Range',col:'#60a5fa',opts:[
+    {id:'sc_drill',label:'Scoring Drill',type:'drill',slot:'Score',extra:{t:'text',label:'Describe'}},
+    {id:'sc_pyramid',label:'Scoring Game – Pyramid',type:'game',slot:'Score',extra:{t:'num',label:'Attempts needed'}},
+    {id:'sc_5mb',label:'Scoring Game – 5 Matchballs',type:'game',slot:'Score',extra:{t:'num',label:'Greens Hit'}},
+    {id:'sc_olly',label:'Scoring Game – Olly',type:'game',slot:'Score',extra:{t:'text',label:'Describe'}},
+    {id:'drv_drill',label:'Driving Drill',type:'drill',slot:'Drive',extra:{t:'text',label:'Describe'}},
+    {id:'drv_fw',label:'Driving Game – 10 to 30m FW',type:'game',slot:'Drive',extra:{t:'num',label:'FW Hit'}},
+    {id:'drv_olly',label:'Driving Game – Olly',type:'game',slot:'Drive',extra:{t:'text',label:'Describe'}},
+  ]},
+  {id:'sga',label:'SGA',col:'#4ade80',opts:[
+    {id:'sga_drill',label:'SGA Drill',type:'drill',slot:'Pitch',extra:{t:'text',label:'Describe'}},
+    {id:'sga_10to2',label:'SGA Game – 10 to 2m',type:'game',slot:'Pitch',extra:{t:'num',label:'Within 2m'}},
+    {id:'sga_olly',label:'SGA Game – Olly',type:'game',slot:'Pitch',extra:{t:'text',label:'Describe'}},
+  ]},
+  {id:'putt',label:'Putting/Chipping',col:'#c084fc',opts:[
+    {id:'pt_pace',label:'Drill – 9 Ball Pace',type:'drill',slot:'Putt/Chip',extra:null},
+    {id:'pt_clock',label:'Drill – 1/2/3m Around the Clock',type:'drill',slot:'Putt/Chip',extra:null},
+    {id:'pt_free',label:'Putting/Chipping Drill',type:'drill',slot:'Putt/Chip',extra:{t:'text',label:'Describe'}},
+    {id:'pt_wes',label:'Game – Wes to 12 Points',type:'game',slot:'Putt/Chip',extra:{t:'num',label:'Score'}},
+    {id:'pt_olly',label:'Game – Olly',type:'game',slot:'Putt/Chip',extra:{t:'text',label:'Describe'}},
+  ]},
+];
+
+const DRILL_SLOTS=['Score','Drive','Pitch','Putt/Chip','Putt/Chip2'];
+const GAME_SLOTS=['Score','Drive','Pitch','Putt/Chip','Putt/Chip2','Round'];
+const GLASSES=6;
+
+// ── STORAGE ──────────────────────────────────────────────────────
+function sg(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch{return null;}}
+function ss(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+function ld(dkey){return sg('d_'+dkey)||{};}
+function sd(dkey,data){ss('d_'+dkey,data);}
+function getSess(dkey){return sg('s_'+dkey)||[];}
+function saveSess(dkey,arr){ss('s_'+dkey,arr);}
+
+// ── DATE UTILS ───────────────────────────────────────────────────
+function today(){return new Date();}
+function dk(d){return d.toISOString().slice(0,10);}
+function dkToday(){return dk(today());}
+function wmon(d){const x=new Date(d);const day=x.getDay();x.setDate(x.getDate()-day+(day===0?-6:1));return x;}
+function weekDays(){
+  const mon=wmon(today());const days=[];
+  for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push({d,dkey:dk(d),dow:d.getDay(),isToday:dk(d)===dkToday()});}
+  return days;
+}
+function daysElapsed(){
+  // how many days of the week have passed including today (Mon=1..Sun=7)
+  const dow=today().getDay();
+  return dow===0?7:dow; // getDay: 0=Sun
+  // Mon=1,Tue=2,...,Sat=6,Sun=0 → we want Mon=1..Sun=7
+  // wmon starts Monday, so elapsed = dow===0?7:dow
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────
+function nn(v){return v!=null&&v!=='';}
+function gv(id){const e=document.getElementById(id);return e?e.value:'';}
+function sv(id,v){const e=document.getElementById(id);if(e)e.value=(v||'');}
+function el(id){return document.getElementById(id);}
+function setHtml(id,h){const e=el(id);if(e)e.innerHTML=h;}
+
+// ── PAGE ROUTER ──────────────────────────────────────────────────
+let CUR='today';
+function go(p){
+  document.querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(e=>e.classList.remove('on'));
+  el('pg-'+p).classList.add('on');
+  el('nb-'+p).classList.add('on');
+  CUR=p;
+  try{
+    if(p==='today')renderToday();
+    else if(p==='week')renderWeek();
+    else if(p==='rounds')renderRounds();
+    else if(p==='analytics')renderAnalytics();
+    else if(p==='export')renderExport();
+  }catch(e){console.error(p,e);el('pg-'+p).innerHTML='<div class="card"><p style="color:var(--rd)">Fehler: '+e.message+'</p></div>';}
+}
+
+// ── WEEK BAR DATA ─────────────────────────────────────────────────
+// Generic week bar: key per day = wbar_{barId}_{dkey} = 0|1|2 (0=empty,1=done,2=extra)
+function getWbar(barId,dkey){return sg('wbar_'+barId+'_'+dkey)||0;}
+function setWbar(barId,dkey,val){ss('wbar_'+barId+'_'+dkey,val);}
+
+function tapWbar(barId,dkey,maxVal){
+  maxVal=maxVal||2;
+  const cur=getWbar(barId,dkey);
+  setWbar(barId,dkey,cur>=maxVal?0:cur+1);
+  go(CUR);
+}
+
+// Week bar HTML builder
+// slots = [{dkey, dow, isToday}]
+// barId = string key
+// labels = array of slot labels (optional, uses DAYS if null)
+// colorFn(val, slotIdx, allVals) => css class
+function wbarHtml(barId,days,title,note,maxVal,colorFn,showVal){
+  maxVal=maxVal||2;
+  let h=`<div class="wbar-row">`;
+  h+=`<div class="wbar-label"><span>${title}</span>${note?`<span style="font-size:10px;color:var(--mu)">${note}</span>`:''}</div>`;
+  h+=`<div class="wbar-slots">`;
+  for(const day of days){
+    const val=getWbar(barId,day.dkey);
+    const cls=colorFn?colorFn(val,day):val>=2?'extra':val>=1?'done':'';
+    const dispVal=showVal&&val>0?val:'';
+    h+=`<div class="wslot ${cls} ${day.isToday?'today-slot':''}" onclick="tapWbar('${barId}','${day.dkey}',${maxVal})">
+      <span class="wday">${DAYS[day.dow]}</span>
+      <span class="wval">${val>=2?'+':val>=1?'✓':''}</span>
+    </div>`;
+  }
+  h+=`</div></div>`;
+  return h;
+}
+
+// Alcohol bar (special coloring per cumulative count)
+function alcBarHtml(days){
+  let h=`<div class="wbar-row">`;
+  // count total this week
+  let total=0;
+  for(const day of days){if(getWbar('alc',day.dkey,1)>=1)total++;}
+  const warn=total>=5?'<span style="color:var(--rd)">⚠ '+total+'× diese Woche</span>':total>=4?'<span style="color:var(--ye)">'+total+'× diese Woche</span>':'';
+  h+=`<div class="wbar-label"><span>🍷 Alkohol</span>${warn}</div>`;
+  h+=`<div class="wbar-slots">`;
+  // determine color: first 3 neutral/green, 4th orange, 5th+ red
+  let cnt=0;
+  for(const day of days){
+    const val=getWbar('alc',day.dkey,1);
+    if(val>=1)cnt++;
+    let cls='';
+    if(val>=1){
+      if(cnt<=3)cls='alc1';
+      else if(cnt===4)cls='alc2';
+      else cls='alc3';
+    }
+    h+=`<div class="wslot ${cls} ${day.isToday?'today-slot':''}" onclick="tapWbar('alc','${day.dkey}',1)">
+      <span class="wday">${DAYS[day.dow]}</span>
+      <span class="wval">${val>=1?'✓':''}</span>
+    </div>`;
+  }
+  h+=`</div></div>`;
+  return h;
+}
+
+// Hydration bar (daily, resets each day)
+function hydrationHtml(dkey){
+  const n=sg('wat_'+dkey)||0;
+  const done=n>=GLASSES;
+  // count days met this week
+  const days=weekDays();
+  const elapsed=daysElapsed();
+  let met=0;
+  for(const day of days){const gn=sg('wat_'+day.dkey)||0;if(gn>=GLASSES)met++;}
+  let h=`<div class="wbar-row">`;
+  h+=`<div class="wbar-label"><span>💧 Hydration${done?' ✓':''}</span><span style="font-size:10px;color:var(--mu)">${met}/${elapsed} Tage erreicht</span></div>`;
+  h+=`<div style="display:flex;gap:5px;align-items:center">`;
+  for(let i=0;i<GLASSES;i++){
+    const filled=i<n;
+    h+=`<div onclick="tapGlass('${dkey}')" style="flex:1;height:28px;border-radius:6px;border:1px solid ${filled?'#60a5fa':'var(--b2)'};background:${filled?'rgba(96,165,250,0.28)':'var(--s2)'};cursor:pointer;transition:all .15s"></div>`;
+  }
+  if(n>0) h+=`<button onclick="rmGlass('${dkey}')" style="border:none;background:none;color:var(--mu);font-size:20px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0">−</button>`;
+  h+=`</div></div>`;
+  return h;
+}
+function tapGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,Math.min(GLASSES,n+1));go(CUR);}
+function rmGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,Math.max(0,n-1));go(CUR);}
+
+// ── SLOT COUNTS (golf) ────────────────────────────────────────────
+function getSlotCounts(){
+  // aggregate all sessions across the whole current week
+  // Putt/Chip has 2 slots: first fills 'Putt/Chip', overflow fills 'Putt/Chip2'
+  const dr={},gm={};
+  for(const day of weekDays()){
+    for(const s of getSess(day.dkey)){
+      let slot=s.slot;
+      const map=s.type==='drill'?dr:gm;
+      if(slot==='Putt/Chip'){
+        // fill first slot, then overflow to second
+        const cur=map['Putt/Chip']||0;
+        if(cur>=1) slot='Putt/Chip2';
+      }
+      map[slot]=(map[slot]||0)+1;
+    }
+  }
+  return{dr,gm};
+}
+
+// Auto-compute Round slot from rounds tab
+function roundSlotDone(){
+  const rounds=sg('rounds')||[];
+  const mon=wmon(today());const monDk=dk(mon);
+  const total=rounds.filter(r=>{
+    if(!r.date)return false;
+    return dk(wmon(new Date(r.date+'T12:00:00')))===monDk;
+  }).reduce((s,r)=>{
+    if(r.holesData)return s+deriveRoundStats(r.holesData).n;
+    return s+Number(r.holes||18);
+  },0);
+  return total>=9;
+}
+
+// ── STATUS BARS (golf sessions) ───────────────────────────────────
+function statusBarsHtml(dkey){
+  const{dr,gm}=getSlotCounts();
+  const roundDone=roundSlotDone();
+  let h='<div class="sbars">';
+  h+='<div class="srow"><div class="slbl"><span>Drills</span></div><div class="slots">';
+  for(const s of DRILL_SLOTS){const c=dr[s]||0;const lbl=s==='Putt/Chip2'?'Putt/Chip':s;h+=`<div class="slot ${c>=2?'d2':c>=1?'d1':''}">${lbl}</div>`;}
+  h+='</div></div>';
+  h+='<div class="srow"><div class="slbl"><span>Games &amp; Rounds</span></div><div class="slots">';
+  for(const s of GAME_SLOTS){
+    const c=s==='Round'?(roundDone?1:0):(gm[s]||0);
+    const lbl=s==='Putt/Chip2'?'Putt/Chip':s==='Round'?'Round':s;
+    const extra=s==='Round'?' (auto)':'';
+    h+=`<div class="slot ${c>=2?'d2':c>=1?'d1':''}" title="${extra}">${lbl}</div>`;
+  }
+  h+='</div></div></div>';
+  return h;
+}
+
+// ── SESSION HTML ──────────────────────────────────────────────────
+function sessionsHtml(dkey){
+  const sess=getSess(dkey);
+  let h='';
+  sess.forEach((s,i)=>{
+    const cat=CATS.find(c=>c.id===s.cat);
+    const col=cat?cat.col:'#888';
+    let txt=`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:5px;vertical-align:middle"></span>`;
+    txt+=`<b>${cat?cat.label:s.cat}</b> — ${s.label}`;
+    if(s.ev)txt+=` <span style="color:var(--mu)">(${s.ev})</span>`;
+    txt+=` <span style="font-size:10px;color:var(--mu)">[${s.type}]</span>`;
+    h+=`<div class="sitem"><span class="sitem-txt">${txt}</span><button class="sitem-del" onclick="remSess('${dkey}',${i})">×</button></div>`;
+  });
+  return h;
+}
+
+// ── GOLF BLOCK ────────────────────────────────────────────────────
+function golfBlockHtml(dkey){
+  let h='<div class="card">';
+  h+='<div class="ct" style="margin-bottom:8px">Golf Sessions</div>';
+  h+=statusBarsHtml(dkey);
+  h+=sessionsHtml(dkey);
+  h+=`<div style="display:flex;gap:6px;margin-top:8px">
+    <select id="cs_${dkey}" onchange="onCatChange('${dkey}')" style="flex:1;font-size:13px">
+      <option value="">Kategorie...</option>
+      ${CATS.map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}
+    </select>
+    <select id="os_${dkey}" onchange="onOptChange('${dkey}')" style="flex:2;font-size:13px">
+      <option value="">Auswählen...</option>
+    </select>
+  </div>
+  <div id="ea_${dkey}"></div>
+  <div style="margin-top:6px"><button class="btn btns" style="width:100%;opacity:0.5;font-size:11px" onclick="addSess('${dkey}')">+ Manuell hinzufügen</button></div>`;
+  h+='</div>';
+  return h;
+}
+
+// ── CHECKBOX TOGGLE ───────────────────────────────────────────────
+function togF(chk){
+  const dkey=chk.dataset.dkey;const fid=chk.dataset.fid;
+  const data=ld(dkey);data[fid]=chk.checked;sd(dkey,data);
+  const lbl=chk.nextElementSibling;
+  if(lbl)lbl.className='cl'+(chk.checked&&fid!=='n_alc'?' done':'');
+}
+
+function crHtml(fid,label,checked,dkey){
+  return `<div class="cr"><input type="checkbox" data-dkey="${dkey}" data-fid="${fid}" onchange="togF(this)" ${checked?'checked':''}><span class="cl ${checked?'done':''}">${label}</span></div>`;
+}
+
+// ── SESSION HANDLERS ──────────────────────────────────────────────
+function onCatChange(dkey){
+  const catId=el('cs_'+dkey).value;
+  const cat=CATS.find(c=>c.id===catId);
+  const os=el('os_'+dkey);
+  os.innerHTML='<option value="">Auswählen...</option>';
+  if(cat)cat.opts.forEach(o=>os.innerHTML+=`<option value="${o.id}">${o.label}</option>`);
+  setHtml('ea_'+dkey,'');
+}
+
+function onOptChange(dkey){
+  const catId=el('cs_'+dkey).value;
+  const optId=el('os_'+dkey).value;
+  const cat=CATS.find(c=>c.id===catId);
+  const opt=cat?cat.opts.find(o=>o.id===optId):null;
+  const ea=el('ea_'+dkey);
+  if(!opt){if(ea)ea.innerHTML='';return;}
+  let inner='';
+  if(opt.extra){
+    const inp=opt.extra.t==='num'
+      ?`<input type="number" id="ei_${dkey}" min="0" placeholder="0" style="max-width:100%;margin-bottom:8px" onkeydown="if(event.key==='Enter')addSess('${dkey}')">`
+      :`<input type="text" id="ei_${dkey}" maxlength="80" placeholder="..." style="margin-bottom:8px" onkeydown="if(event.key==='Enter')addSess('${dkey}')">`;
+    inner+=`<label>${opt.extra.label}</label>${inp}`;
+  }
+  inner+=`<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+    <input type="checkbox" id="eck_${dkey}" onchange="if(this.checked)addSess('${dkey}')" style="width:18px;height:18px;accent-color:var(--ac)">
+    <span style="font-size:13px">✓ Hinzufügen${opt.extra?' (oder Enter)':''}</span>
+  </label>`;
+  if(ea)ea.innerHTML=`<div class="earea">${inner}</div>`;
+  if(opt.extra)setTimeout(()=>{const i=el('ei_'+dkey);if(i)i.focus();},50);
+}
+
+function addSess(dkey){
+  const catId=el('cs_'+dkey)?el('cs_'+dkey).value:'';
+  const optId=el('os_'+dkey)?el('os_'+dkey).value:'';
+  if(!catId||!optId)return;
+  const cat=CATS.find(c=>c.id===catId);
+  const opt=cat?cat.opts.find(o=>o.id===optId):null;
+  if(!opt)return;
+  const ev=opt.extra?(el('ei_'+dkey)?el('ei_'+dkey).value:''):'';
+  const sess=getSess(dkey);
+  sess.push({cat:catId,optId:opt.id,type:opt.type,slot:opt.slot,label:opt.label,ev});
+  saveSess(dkey,sess);
+  logActivity(dkey,'golf'); // golf session added
+  go(CUR);
+}
+
+function remSess(dkey,idx){
+  const sess=getSess(dkey);sess.splice(idx,1);saveSess(dkey,sess);go(CUR);
+}
+
+// ── TODAY ─────────────────────────────────────────────────────────
+function renderToday(){
+  const tdkey=dkToday();
+  const data=ld(tdkey);
+  const days=weekDays();
+  const vacDkey=dk(wmon(today()));
+  const isVac=!!sg('vac_'+vacDkey);
+  let h='';
+
+  // Garmin readiness card
+  const todayKey=dkToday();
+  if(window.GARMIN&&window.GARMIN.readiness&&window.GARMIN.date===todayKey){
+    const r=window.GARMIN.readiness;
+    const scoreCol=r.score>=70?'var(--gn)':r.score>=45?'var(--ye)':'var(--rd)';
+    const m=window.GARMIN.metrics||{};
+    const metaBits=[];
+    if(m.sleep_score!=null)metaBits.push(`💤 ${m.sleep_score}`);
+    if(m.body_battery!=null)metaBits.push(`⚡ ${m.body_battery}`);
+    if(m.hrv_last_night!=null)metaBits.push(`💓 HRV ${m.hrv_last_night} ms`);
+    if(m.resting_hr!=null)metaBits.push(`❤️ ${m.resting_hr} bpm`);
+    h+=`<div class="card" style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:${r.summary?'10px':'0'}">
+        <div style="text-align:center;min-width:52px">
+          <div style="font-size:34px;font-weight:800;color:${scoreCol};line-height:1">${r.score}</div>
+          <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Readiness</div>
+        </div>
+        <div style="flex:1">
+          ${r.summary?`<div style="font-size:13px;line-height:1.5;color:var(--tx)">${r.summary}</div>`:''}
+          ${metaBits.length?`<div style="font-size:11px;color:var(--mu);margin-top:6px">${metaBits.join(' · ')}</div>`:''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Vacation toggle
+  h+=`<div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 16px">
+    <input type="checkbox" id="vac_chk" onchange="togVac(this)" ${isVac?'checked':''} style="width:18px;height:18px;accent-color:var(--ac)">
+    <span style="font-size:14px;${isVac?'color:var(--ye);font-weight:600':''}">🏖 Urlaub diese Woche</span>
+    ${isVac?'<span class="bw" style="margin-left:auto">wird in Analyse ausgeschlossen</span>':''}
+  </div>`;
+
+  // Golf
+  h+=golfBlockHtml(tdkey);
+
+  // Week bars card
+  h+='<div class="card"><div class="ct">Wochenziele</div>';
+  h+=wbarHtml('mirror',days,'⛳ 5 min Spiegel-Putting','Tippen = abhaken',2,null);
+  h+=wbarHtml('protein',days,'🥩 Protein-Ziel','',2,null);
+  h+=wbarHtml('stretch',days,'🧘 Stretching + Foam Rolling','',2,null);
+  h+=hydrationHtml(tdkey);
+  h+=alcBarHtml(days);
+  h+='</div>';
+
+  // Cardio & Fitness bars
+  h+='<div class="card"><div class="ct">Fitness</div>';
+  h+=cardioBarHtml(days);
+  h+=fitnessBarHtml(days);
+  h+='</div>';
+
+  setHtml('pg-today',h);
+}
+
+// ── CARDIO BAR ────────────────────────────────────────────────────
+const CARDIO_SLOTS=['Zone 2','Long Run','Tempo','VO2 Max'];
+function cardioBarHtml(days){
+  let h=`<div class="wbar-row"><div class="wbar-label"><span>🏃 Cardio</span><span style="font-size:10px;color:var(--mu)">2× tippen = Extra</span></div>`;
+  h+=`<div class="wbar-slots">`;
+  for(let i=0;i<CARDIO_SLOTS.length;i++){
+    const barId='cardio_'+i;
+    // find the day this was planned (or just show weekly status)
+    // For cardio we track total per slot across the week
+    const totalDone=days.reduce((s,d)=>s+(getWbar(barId,d.dkey)||0),0);
+    const cls=totalDone>=2?'extra':totalDone>=1?'done':'';
+    h+=`<div class="wslot ${cls}" onclick="tapCardioSlot(${i})" style="height:38px;flex-direction:column;gap:2px">
+      <span class="wday" style="font-size:7px;text-align:center;line-height:1.1">${CARDIO_SLOTS[i]}</span>${garminBadge(CARDIO_SLOTS[i])}
+      <span class="wval">${totalDone>=2?'+':totalDone>=1?'✓':''}</span>
+    </div>`;
+  }
+  h+=`</div></div>`;
+  return h;
+}
+
+function tapCardioSlot(slotIdx){
+  const dkey=dkToday();
+  const barId='cardio_'+slotIdx;
+  const cur=getWbar(barId,dkey);
+  setWbar(barId,dkey,cur>=2?0:cur+1);
+  go(CUR);
+}
+
+// ── FITNESS BAR ───────────────────────────────────────────────────
+const FITNESS_SLOTS=['Weights','Weights','Mobility'];
+function fitnessBarHtml(days){
+  let h=`<div class="wbar-row"><div class="wbar-label"><span>💪 Gym</span><span style="font-size:10px;color:var(--mu)">2× tippen = Extra</span></div>`;
+  h+=`<div class="wbar-slots">`;
+  for(let i=0;i<FITNESS_SLOTS.length;i++){
+    const barId='fit_'+i;
+    const totalDone=days.reduce((s,d)=>s+(getWbar(barId,d.dkey)||0),0);
+    const cls=totalDone>=2?'extra':totalDone>=1?'done':'';
+    h+=`<div class="wslot ${cls}" onclick="tapFitSlot(${i})" style="height:38px">
+      <span class="wday" style="font-size:7px;text-align:center;line-height:1.1">${FITNESS_SLOTS[i]}</span>${garminBadge(FITNESS_SLOTS[i])}
+      <span class="wval">${totalDone>=2?'+':totalDone>=1?'✓':''}</span>
+    </div>`;
+  }
+  h+=`</div></div>`;
+  return h;
+}
+
+function tapFitSlot(slotIdx){
+  const dkey=dkToday();
+  const barId='fit_'+slotIdx;
+  const cur=getWbar(barId,dkey);
+  const next=cur>=2?0:cur+1;
+  setWbar(barId,dkey,next);
+  // Log weights when first checked (slots 0+1 are both 'Weights')
+  if(next===1&&(slotIdx===0||slotIdx===1)) logActivity(dkey,'weights');
+  go(CUR);
+}
+
+function togVac(chk){
+  const vacDkey=dk(wmon(today()));
+  ss('vac_'+vacDkey, chk.checked);
+  go(CUR);
+}
+
+// ── GITHUB ACTIVITY LOG ───────────────────────────────────────────
+function ghCfg(){
+  return{
+    token: localStorage.getItem('gh_token')||'',
+    owner: localStorage.getItem('gh_owner')||'',
+    repo:  localStorage.getItem('gh_repo')||'',
+  };
+}
+
+async function logActivity(date,activity){
+  const cfg=ghCfg();
+  if(!cfg.token||!cfg.owner||!cfg.repo)return;
+  const url=`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/activity_log.json`;
+  const headers={'Authorization':'token '+cfg.token,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'};
+  try{
+    const resp=await fetch(url,{headers});
+    let entries=[],sha=null;
+    if(resp.ok){
+      const data=await resp.json();
+      sha=data.sha;
+      entries=JSON.parse(atob(data.content.replace(/\n/g,'')));
+    }
+    if(entries.some(e=>e.date===date&&e.activity===activity))return; // already logged
+    entries.push({date,activity});
+    entries.sort((a,b)=>a.date.localeCompare(b.date));
+    const body={message:`log: ${activity} on ${date}`,content:btoa(unescape(encodeURIComponent(JSON.stringify(entries,null,2))))};
+    if(sha)body.sha=sha;
+    await fetch(url,{method:'PUT',headers,body:JSON.stringify(body)});
+    console.log(`Logged: ${activity} on ${date}`);
+  }catch(e){console.warn('Activity log error:',e);}
+}
+
+// ── WEEK VIEW ─────────────────────────────────────────────────────
+let activeDay=null;
+function renderWeek(){
+  const t=today();const mon=wmon(t);
+  if(!activeDay)activeDay=dkToday();
+  const days=weekDays();
+  let strip='<div class="dstrip">';
+  for(const day of days){
+    const isA=day.dkey===activeDay;
+    const hasSess=getSess(day.dkey).length>0;
+    strip+=`<button class="dbtn ${isA?'on':''} ${day.isToday?'tod':''} ${hasSess?'has':''}" onclick="selDay('${day.dkey}')">
+      <div style="font-size:12px;font-weight:600">${DAYS[day.dow]}</div>
+      <div style="font-size:11px">${day.d.getDate()}.</div>
+      <div class="ddot"></div>
+    </button>`;
+  }
+  strip+='</div>';
+  const selDate=new Date(activeDay+'T12:00:00');
+  const selData=ld(activeDay);
+  let h=strip;
+  h+=`<div style="font-size:16px;font-weight:700;margin-bottom:10px">${DAYFULL[selDate.getDay()]}, ${selDate.getDate()}.</div>`;
+  h+=golfBlockHtml(activeDay);
+
+  // Week bars (same as today)
+  h+='<div class="card"><div class="ct">Wochenziele</div>';
+  h+=wbarHtml('mirror',days,'⛳ 5 min Spiegel-Putting','',2,null);
+  h+=wbarHtml('protein',days,'🥩 Protein-Ziel','',2,null);
+  h+=wbarHtml('stretch',days,'🧘 Stretching + Foam Rolling','',2,null);
+  h+=hydrationHtml(activeDay);
+  h+=alcBarHtml(days);
+  h+='</div>';
+
+  h+='<div class="card"><div class="ct">Fitness</div>';
+  h+=cardioBarHtml(days);
+  h+=fitnessBarHtml(days);
+  h+='</div>';
+
+  setHtml('pg-week',h);
+}
+function selDay(dkey){activeDay=dkey;renderWeek();}
+
+// ── ROUNDS ────────────────────────────────────────────────────────
+let rounds=[],editIdx=null;
+
+function deriveRoundStats(hd){
+  if(!hd||!hd.length)return{n:0,delta:null,gir:null,fw:null,ud:null,p3:null,db:null,b5:null,dc:null,bs:null};
+  const played=hd.filter(h=>h.par!=null&&h.par!==''&&h.score!=null&&h.score!=='');
+  const n=played.length;
+  if(!n)return{n:0,delta:null,gir:null,fw:null,ud:null,p3:null,db:null,b5:null,dc:null,bs:null};
+  const delta=played.reduce((s,h)=>s+(Number(h.score)-Number(h.par)),0);
+  const gir=played.filter(h=>h.gir).length;
+  const fw=played.filter(h=>h.fw&&Number(h.par)!==3).length;
+  const ud=played.filter(h=>h.ud&&!h.gir).length;
+  const p3=played.filter(h=>h.p3).length;
+  const db=played.filter(h=>Number(h.score)>=Number(h.par)+2).length;
+  const b5=played.filter(h=>Number(h.par)===5&&Number(h.score)>=6).length;
+  const dc=played.filter(h=>h.dc).length;
+  const bs=played.filter(h=>h.bs).length;
+  return{n,delta,gir,fw,ud,p3,db,b5,dc,bs};
+}
+
+function getRoundStats(r){
+  if(r.holesData){
+    const s=deriveRoundStats(r.holesData);
+    return{...s,holes:s.n};
+  }
+  // legacy format
+  return{
+    n:Number(r.holes||18),holes:Number(r.holes||18),
+    delta:nn(r.delta)?Number(r.delta):null,
+    gir:nn(r.gir)?Number(r.gir):null,
+    fw:nn(r.fw)?Number(r.fw):null,
+    ud:nn(r.ud)?Number(r.ud):null,
+    p3:nn(r.p3)?Number(r.p3):null,
+    db:nn(r.db)?Number(r.db):null,
+    b5:nn(r.b5)?Number(r.b5):null,
+    dc:nn(r.dc)?Number(r.dc):null,
+    bs:nn(r.bs)?Number(r.bs):null
+  };
+}
+
+function holeBoxHtml(i){
+  return `<div class="hole-box">
+    <div class="hole-hdr">Hole ${i+1}</div>
+    <div class="hole-r1">
+      <div class="hole-nf"><span class="hole-lbl">Par</span><input type="number" id="hp_${i}" min="3" max="5" placeholder="4" class="hole-num" oninput="onHolePar(${i})"></div>
+      <div class="hole-nf"><span class="hole-lbl">Score</span><input type="number" id="hs_${i}" min="1" max="15" placeholder="—" class="hole-num"></div>
+      <div id="hfw_wrap_${i}" class="hole-fw" style="display:none">
+        <input type="checkbox" id="hfw_${i}" style="width:20px;height:20px;accent-color:var(--ac)">
+        <label for="hfw_${i}" class="hole-lbl" style="font-size:12px;cursor:pointer">FW</label>
+      </div>
+    </div>
+    <div class="hole-r2">
+      <label class="hole-toggle"><input type="checkbox" id="hgir_${i}" onchange="onHoleGir(${i})"> GIR</label>
+      <div id="hud_wrap_${i}" style="display:inline"><label class="hole-toggle"><input type="checkbox" id="hud_${i}"> U&amp;D</label></div>
+      <label class="hole-toggle"><input type="checkbox" id="h3p_${i}"> 3P</label>
+      <label class="hole-toggle"><input type="checkbox" id="hdc_${i}"> DC</label>
+      <label class="hole-toggle"><input type="checkbox" id="hbs_${i}"> E9+</label>
+    </div>
+  </div>`;
+}
+
+function onHolePar(i){
+  const v=el('hp_'+i)?el('hp_'+i).value:'';
+  const fw=el('hfw_wrap_'+i);
+  if(fw)fw.style.display=(v&&Number(v)!==3)?'flex':'none';
+}
+
+function onHoleGir(i){
+  const checked=el('hgir_'+i)?el('hgir_'+i).checked:false;
+  const ud=el('hud_wrap_'+i);
+  if(ud)ud.style.display=checked?'none':'inline';
+  if(checked&&el('hud_'+i))el('hud_'+i).checked=false;
+}
+
+function renderRounds(){
+  rounds=sg('rounds')||[];
+  const sc18=(v,n)=>v!==null&&n>0?v*18/n:null;
+  const allStats=rounds.map(r=>getRoundStats(r));
+  const allD=allStats.filter(s=>s.delta!==null&&s.n>0).map(s=>sc18(s.delta,s.n));
+  const comD=rounds.map((r,i)=>r.comp?sc18(allStats[i].delta,allStats[i].n):null).filter(v=>v!==null);
+  const girA=allStats.filter(s=>s.gir!==null&&s.n>0).map(s=>sc18(s.gir,s.n));
+  const avg=arr=>arr.length?(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1):null;
+  const avgD=avg(allD),avgC=avg(comD),avgG=avg(girA);
+  let h='';
+  if(rounds.length>0){
+    h+=`<div class="mgrid">
+      <div class="mc"><div class="mv">${avgD!==null?(Number(avgD)>0?'+':'')+Number(avgD).toFixed(1):'—'}</div><div class="ml">Ø Par /18</div></div>
+      <div class="mc"><div class="mv">${avgC!==null?(Number(avgC)>0?'+':'')+Number(avgC).toFixed(1):'—'}</div><div class="ml">Ø Comp /18</div></div>
+      <div class="mc"><div class="mv">${avgG?Number(avgG).toFixed(1):'—'}</div><div class="ml">Ø GIR /18</div></div>
+    </div>`;
+  }
+  h+=`<div class="card"><div class="ct">${editIdx!==null?'Bearbeiten':'Neue Runde'}</div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="fr"><label>Datum</label><input type="date" id="rf_d"></div>
+      <div class="fr"><label>Platz</label><input type="text" id="rf_c" placeholder="Fontana"></div>
+    </div>
+    <div class="fr" style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <input type="checkbox" id="rf_co" style="width:18px;height:18px;accent-color:var(--ac)">
+      <label for="rf_co" style="font-size:14px">Competitive</label>
+    </div>
+    <div class="dl" style="margin-bottom:10px">Löcher</div>
+    <div id="holes-container">${Array.from({length:18},(_,i)=>holeBoxHtml(i)).join('')}</div>
+    <div class="dl" style="margin-top:4px">Notizen</div>
+    <div class="fr"><textarea id="rf_n" placeholder="Was hat gut / schlecht funktioniert?"></textarea></div>
+    <div class="rbtns">
+      <button class="btn btnp" onclick="subRound()">Speichern</button>
+      <button class="btn" onclick="cancelR()">Abbrechen</button>
+    </div>
+  </div>`;
+  setHtml('pg-rounds',h);
+  if(editIdx!==null){
+    const r=rounds[editIdx];
+    setTimeout(()=>{
+      sv('rf_d',r.date);sv('rf_c',r.course);sv('rf_n',r.notes||'');
+      el('rf_co').checked=!!r.comp;
+      const hd=r.holesData||[];
+      hd.forEach((hdata,i)=>{
+        if(el('hp_'+i))el('hp_'+i).value=hdata.par||'';
+        if(el('hs_'+i))el('hs_'+i).value=hdata.score||'';
+        if(el('hfw_'+i))el('hfw_'+i).checked=!!hdata.fw;
+        if(el('hgir_'+i))el('hgir_'+i).checked=!!hdata.gir;
+        if(el('hud_'+i))el('hud_'+i).checked=!!hdata.ud;
+        if(el('h3p_'+i))el('h3p_'+i).checked=!!hdata.p3;
+        if(el('hdc_'+i))el('hdc_'+i).checked=!!hdata.dc;
+        if(el('hbs_'+i))el('hbs_'+i).checked=!!hdata.bs;
+        onHolePar(i);onHoleGir(i);
+      });
+    },80);
+  }
+  if(rounds.length>0){
+    let hist=`<div class="card"><div class="ct">Runden-Historie</div>`;
+    rounds.forEach((r,i)=>{
+      const s=getRoundStats(r);
+      const fmt=(v,n)=>v!==null&&n>0?v*18/n:null;
+      const dScaled=fmt(s.delta,s.n);
+      hist+=`<div class="rrow">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:700;font-size:14px">${r.date||'—'}${r.course?' · '+r.course:''}</span>
+          <div style="display:flex;gap:6px">
+            ${r.comp?'<span class="bi">Competitive</span>':''}
+            <button class="btn btns" onclick="editR(${i})" style="padding:3px 10px">✎</button>
+            <button class="btn btns btnd" onclick="delR(${i})" style="padding:3px 10px">✕</button>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--mu);display:flex;flex-wrap:wrap;gap:8px">
+          <span>${s.n||'?'} Loch</span>
+          ${s.delta!==null?`<span style="font-weight:700;color:var(--tx)">${Number(s.delta)>0?'+':''}${s.delta} Par${s.n<18?' ('+((dScaled>0?'+':'')+Number(dScaled).toFixed(1))+'/18)':''}</span>`:''}
+          ${s.gir!==null?`<span>GIR:${s.gir}</span>`:''}
+          ${s.fw!==null?`<span>FW:${s.fw}</span>`:''}
+          ${s.ud!==null?`<span>U&D:${s.ud}</span>`:''}
+          ${s.p3!==null?`<span class="${s.p3>2?'bad':s.p3>0?'warn':'good'}">3P:${s.p3}</span>`:''}
+          ${s.db!==null?`<span class="${s.db>2?'bad':s.db>0?'warn':'good'}">Dbl:${s.db}</span>`:''}
+          ${s.b5!==null?`<span>BP5:${s.b5}</span>`:''}
+          ${s.dc!==null?`<span class="${s.dc>1?'bad':s.dc>0?'warn':'good'}">DC:${s.dc}</span>`:''}
+          ${s.bs!==null?`<span>B9+:${s.bs}</span>`:''}
+        </div>
+        ${r.notes?`<div style="font-size:12px;color:var(--mu);margin-top:4px;font-style:italic">${r.notes}</div>`:''}
+      </div>`;
+    });
+    hist+='</div>';
+    el('pg-rounds').insertAdjacentHTML('beforeend',hist);
+  }
+}
+function subRound(){
+  if(!gv('rf_d'))return;
+  const holesData=Array.from({length:18},(_,i)=>({
+    par:el('hp_'+i)?el('hp_'+i).value:'',
+    score:el('hs_'+i)?el('hs_'+i).value:'',
+    fw:el('hfw_'+i)?el('hfw_'+i).checked:false,
+    gir:el('hgir_'+i)?el('hgir_'+i).checked:false,
+    ud:el('hud_'+i)?el('hud_'+i).checked:false,
+    p3:el('h3p_'+i)?el('h3p_'+i).checked:false,
+    dc:el('hdc_'+i)?el('hdc_'+i).checked:false,
+    bs:el('hbs_'+i)?el('hbs_'+i).checked:false,
+  }));
+  const badHoles=holesData.filter(h=>h.score!==''&&(h.par===''||h.par==null));
+  if(badHoles.length>0){
+    const ok=confirm(badHoles.length+' Loch/Löcher haben Score aber kein Par — diese werden nicht gewertet. Trotzdem speichern?');
+    if(!ok)return;
+  }
+  const r={date:gv('rf_d'),course:gv('rf_c'),comp:el('rf_co').checked,notes:gv('rf_n'),holesData};
+  if(editIdx!==null)rounds[editIdx]=r;else rounds.unshift(r);
+  ss('rounds',rounds);editIdx=null;
+  logActivity(gv('rf_d'),'golf'); // round recorded
+  renderRounds();
+}
+function cancelR(){editIdx=null;renderRounds();}
+function editR(i){editIdx=i;renderRounds();setTimeout(()=>el('pg-rounds').scrollIntoView({behavior:'smooth'}),100);}
+function delR(i){if(!confirm('Runde löschen?'))return;rounds.splice(i,1);ss('rounds',rounds);renderRounds();}
+
+// ── ANALYTICS ─────────────────────────────────────────────────────
+function getWeekData(weeksBack){
+  const t=today();const out=[];
+  for(let w=weeksBack-1;w>=0;w--){
+    const mon=new Date(wmon(t));mon.setDate(mon.getDate()-w*7);
+    const lbl=mon.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit'});
+    const wdays=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);wdays.push({d,dkey:dk(d)});}
+    let mirror=0,protein=0,stretch=0,watMet=0,alc=0;
+    let cardio=0,fit=0,range=0,sga=0,chipputt=0;
+    for(const wd of wdays){
+      if(getWbar('mirror',wd.dkey)>=1)mirror++;
+      if(getWbar('protein',wd.dkey)>=1)protein++;
+      if(getWbar('stretch',wd.dkey)>=1)stretch++;
+      if((sg('wat_'+wd.dkey)||0)>=GLASSES)watMet++;
+      if(getWbar('alc',wd.dkey)>=1)alc++;
+      // count days (not total slot taps)
+      if([0,1,2,3].some(i=>getWbar('cardio_'+i,wd.dkey)>=1))cardio++;
+      if([0,1,2].some(i=>getWbar('fit_'+i,wd.dkey)>=1))fit++;
+      const sess=getSess(wd.dkey);
+      range+=sess.filter(s=>s.cat==='range').length;
+      sga+=sess.filter(s=>s.cat==='sga').length;
+      chipputt+=sess.filter(s=>s.cat==='putt').length;
+    }
+    const rds=(sg('rounds')||[]).filter(r=>{
+      if(!r.date)return false;
+      return dk(wmon(new Date(r.date+'T12:00:00')))===dk(mon);
+    });
+    const sc18=(v,n)=>v!==null&&n>0?v*18/n:null;
+    const rdStats=rds.map(r=>getRoundStats(r));
+    const deltas=rdStats.filter(s=>s.delta!==null&&s.n>0).map(s=>sc18(s.delta,s.n));
+    const girs=rdStats.filter(s=>s.gir!==null&&s.n>0).map(s=>sc18(s.gir,s.n));
+    const uds=rdStats.filter(s=>s.ud!==null&&s.n>0).map(s=>sc18(s.ud,s.n));
+    const dbs=rdStats.filter(s=>s.db!==null&&s.n>0).map(s=>sc18(s.db,s.n));
+    const avg=arr=>arr.length?(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1):null;
+    const holes=rdStats.reduce((s,st)=>s+(st.n||0),0);
+    const isVacWeek=!!sg('vac_'+dk(mon));
+    if(isVacWeek){
+      out.push({lbl,vacation:true,mirror:null,protein:null,stretch:null,watMet:null,alc:null,cardio:null,fit:null,holes:null,range:null,sga:null,chipputt:null,rounds:null,comp:null,avgDelta:null,avgGir:null,avgUd:null,avgDb:null});
+    }else{
+      out.push({lbl,vacation:false,mirror,protein,stretch,watMet,alc,cardio,fit,holes,range,sga,chipputt,
+        rounds:rds.length,comp:rds.filter(r=>r.comp).length,
+        avgDelta:avg(deltas),avgGir:avg(girs),avgUd:avg(uds),avgDb:avg(dbs)});
+    }
+  }
+  return out;
+}
+
+function drawChart(id,labels,datasets,opts){
+  opts=opts||{};
+  const c=el(id);if(!c)return;
+  const ctx=c.getContext('2d');
+  const W=c.width,H=c.height;
+  const p={t:12,r:32,b:28,l:32}; // both sides y-axis
+  const cW=W-p.l-p.r,cH=H-p.t-p.b;
+  ctx.clearRect(0,0,W,H);
+  const all=datasets.flatMap(d=>d.vals.filter(v=>v!==null));
+  if(!all.length){
+    ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Noch keine Daten',W/2,H/2);return;
+  }
+  const mn=opts.z?0:Math.min(...all);
+  const mx=Math.max(...all,(opts.z?1:mn+1));
+  const rng=mx-mn||1;const n=labels.length;const step=n>1?cW/(n-1):cW;
+  // grid + y-axis both sides
+  ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=p.t+cH*(1-i/4);
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(p.l+cW,y);ctx.stroke();
+    const v=mn+rng*i/4;const vStr=Number.isInteger(v)?v:v.toFixed(1);
+    // left
+    ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='9px sans-serif';ctx.textAlign='right';
+    ctx.fillText(vStr,p.l-3,y+3);
+    // right
+    ctx.textAlign='left';ctx.fillText(vStr,p.l+cW+3,y+3);
+  }
+  // x labels
+  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='9px sans-serif';ctx.textAlign='center';
+  labels.forEach((l,i)=>{if(n<=8||i%2===0)ctx.fillText(l,p.l+i*step,H-6);});
+  // datasets
+  for(const ds of datasets){
+    if(ds.target!==undefined){
+      const ty=p.t+cH*(1-(ds.target-mn)/rng);
+      ctx.setLineDash([4,3]);ctx.strokeStyle=ds.col+'55';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(p.l,ty);ctx.lineTo(p.l+cW,ty);ctx.stroke();ctx.setLineDash([]);
+    }
+    ctx.strokeStyle=ds.col;ctx.lineWidth=2;ctx.beginPath();let first=true;
+    ds.vals.forEach((v,i)=>{
+      if(v===null)return;
+      const x=p.l+i*step;const y=p.t+cH*(1-(Number(v)-mn)/rng);
+      if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    ds.vals.forEach((v,i)=>{
+      if(v===null)return;
+      const x=p.l+i*step;const y=p.t+cH*(1-(Number(v)-mn)/rng);
+      ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=ds.col;ctx.fill();
+    });
+  }
+}
+
+function renderAnalytics(){
+  const W=12;const data=getWeekData(W);const lbls=data.map(d=>d.lbl);
+  const cw=Math.min(window.innerWidth-32,600);
+  let h=`<div style="font-size:12px;color:var(--mu);margin-bottom:12px">Rolling ${W} Wochen</div>`;
+  const charts=[
+    {id:'c_sc',title:'Score zu Par (Ø /18)',h:130,ds:[{vals:data.map(d=>d.avgDelta!==null?Number(d.avgDelta):null),col:'#c8a96e'}]},
+    {id:'c_gi',title:'GIR &amp; Up&amp;Downs (Ø /18)',h:130,ds:[{vals:data.map(d=>d.avgGir!==null?Number(d.avgGir):null),col:'#4ade80'},{vals:data.map(d=>d.avgUd!==null?Number(d.avgUd):null),col:'#60a5fa'}],leg:'<span style="color:#4ade80">●</span> GIR &nbsp;<span style="color:#60a5fa">●</span> U&D',z:true},
+    {id:'c_db',title:'Double Bogeys (Ø /18)',h:110,ds:[{vals:data.map(d=>d.avgDb!==null?Number(d.avgDb):null),col:'#f87171'}],z:true},
+    {id:'c_holes',title:'Holes Played / Week',h:120,ds:[
+      {vals:data.map(d=>d.holes),col:'#c8a96e',target:36},
+    ],leg:'Strichlinie = Ziel (36)',z:true},
+    {id:'c_golf',title:'Practice Sessions / Week',h:130,ds:[
+      {vals:data.map(d=>d.range),col:'#60a5fa',target:2},
+      {vals:data.map(d=>d.sga),col:'#4ade80',target:2},
+      {vals:data.map(d=>d.chipputt),col:'#c084fc',target:2},
+    ],leg:'<span style="color:#60a5fa">●</span> Range &nbsp;<span style="color:#4ade80">●</span> SGA &nbsp;<span style="color:#c084fc">●</span> Chip&amp;Putt &nbsp; Strichlinie = Ziel (2)',z:true},
+    {id:'c_hab',title:'Habit Adherence (days / week)',h:130,ds:[
+      {vals:data.map(d=>d.mirror),col:'#c8a96e',target:7},
+      {vals:data.map(d=>d.protein),col:'#4ade80',target:7},
+      {vals:data.map(d=>d.stretch),col:'#60a5fa',target:7},
+      {vals:data.map(d=>d.watMet),col:'#c084fc',target:7},
+      {vals:data.map(d=>d.alc),col:'#f87171'},
+    ],leg:'<span style="color:#c8a96e">●</span> Putten &nbsp;<span style="color:#4ade80">●</span> Protein &nbsp;<span style="color:#60a5fa">●</span> Stretch &nbsp;<span style="color:#c084fc">●</span> Wasser &nbsp;<span style="color:#f87171">●</span> Alkohol',z:true},
+    {id:'c_fit',title:'Cardio &amp; Weights (days / week)',h:110,ds:[
+      {vals:data.map(d=>d.cardio),col:'#4ade80',target:3},
+      {vals:data.map(d=>d.fit),col:'#60a5fa',target:2},
+    ],leg:'<span style="color:#4ade80">●</span> Cardio (Ziel 3) &nbsp;<span style="color:#60a5fa">●</span> Weights (Ziel 2)',z:true},
+  ];
+  for(const c of charts){
+    h+=`<div class="card"><div class="ct">${c.title}</div><canvas id="${c.id}" width="${cw}" height="${c.h}"></canvas>`;
+    if(c.leg)h+=`<div style="font-size:11px;color:var(--mu);margin-top:4px">${c.leg}</div>`;
+    h+='</div>';
+  }
+  setHtml('pg-analytics',h);
+  setTimeout(()=>{for(const c of charts)drawChart(c.id,lbls,c.ds,{z:!!c.z});},60);
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────
+function buildReport(weeks){
+  const data=getWeekData(weeks);const rds=sg('rounds')||[];
+  let t='╔══════════════════════════════════════╗\n║       GOLF PERFORMANCE REPORT         ║\n';
+  t+=`║  ${today().toLocaleDateString('de-AT').padEnd(34)}║\n╚══════════════════════════════════════╝\n\n`;
+  const last=data[data.length-1];
+  t+=`LETZTE WOCHE\nRunden: ${last.rounds} (${last.comp}× Competitive)\n`;
+  if(last.avgDelta!==null)t+=`Ø Score: ${Number(last.avgDelta)>0?'+':''}${last.avgDelta} zum Par\n`;
+  if(last.avgGir!==null)t+=`Ø GIR: ${last.avgGir}\n`;
+  t+=`Sessions: ${last.totSess} (${last.drills} Drills, ${last.games} Games)\n\n`;
+  t+=`ÜBERSICHT (letzte ${weeks} Wochen)\n`;
+  t+='Woche    | Rdn | Score  | GIR  | U&D  | Dbl | Sess\n---------+-----+--------+------+------+-----+-----\n';
+  for(const w of data){
+    const sc=w.avgDelta!==null?(Number(w.avgDelta)>0?'+':'')+w.avgDelta:'—';
+    t+=`${w.lbl.padEnd(8)} | ${String(w.rounds).padEnd(3)} | ${String(sc).padEnd(6)} | ${String(w.avgGir||'—').padEnd(4)} | ${String(w.avgUd||'—').padEnd(4)} | ${String(w.avgDb||'—').padEnd(3)} | ${w.totSess}\n`;
+  }
+  t+='\nLETZTE RUNDEN\n';
+  for(const r of rds.slice(0,8)){
+    const s=getRoundStats(r);
+    const sc18=(v,n)=>v!==null&&n>0?(v*18/n).toFixed(1):null;
+    t+=`${r.date||'—'} ${r.course||''} ${r.comp?'[Competitive]':''}\n  ${s.n||'?'} Loch`;
+    if(s.delta!==null)t+=`, ${Number(s.delta)>0?'+':''}${s.delta} Par${s.n<18?' ('+sc18(s.delta,s.n)+'/18)':''}`;
+    if(s.gir!==null)t+=`, GIR:${s.gir}`;
+    if(s.fw!==null)t+=`, FW:${s.fw}`;
+    if(s.ud!==null)t+=`, U&D:${s.ud}`;
+    if(s.p3!==null)t+=`, 3P:${s.p3}`;
+    if(s.db!==null)t+=`, Dbl:${s.db}`;
+    if(s.dc!==null)t+=`, DC:${s.dc}`;
+    if(s.bs!==null)t+=`, B9+:${s.bs}`;
+    t+='\n';if(r.notes)t+=`  → ${r.notes}\n`;
+  }
+  t+='\nGEWOHNHEITEN (letzte 6 Wochen)\n';
+  for(const w of data.slice(-6)){
+    t+=`${w.lbl}: Putten ${w.mirror}/7 | Protein ${w.protein}/7 | Stretch ${w.stretch}/7 | Wasser ${w.watMet}/7 | Cardio ${w.cardio} | Gym ${w.fit}\n`;
+  }
+  return t;
+}
+
+function renderExport(){
+  const cfg=ghCfg();
+  setHtml('pg-export',`
+    <div class="card"><div class="ct">Golf Report für den Pro</div>
+      <p style="font-size:13px;color:var(--mu);margin-bottom:12px">Letzte 6 Wochen. Keine privaten Daten.</p>
+      <div class="rbtns">
+        <button class="btn btnp" onclick="copyRep()">📋 Kopieren</button>
+        <button class="btn btnb" onclick="showRep()">👁 Vorschau</button>
+      </div><div id="rep-prev"></div>
+    </div>
+    <div class="card"><div class="ct">Datensicherung</div>
+      <p style="font-size:13px;color:var(--mu);margin-bottom:12px">Alle lokalen Daten exportieren / importieren.</p>
+      <div class="rbtns">
+        <button class="btn btnp" onclick="downloadAll()">⬇ Herunterladen</button>
+        <button class="btn" onclick="importData()">⬆ Importieren</button>
+        <button class="btn" onclick="copyAll()">📋 Kopieren</button>
+        <button class="btn" onclick="showAll()">👁 Vorschau</button>
+      </div><div id="all-prev"></div>
+    </div>
+    <div class="card"><div class="ct">GitHub Einstellungen</div>
+      <p style="font-size:13px;color:var(--mu);margin-bottom:12px">Für automatisches Aktivitäts-Logging (Weights, Golf) → activity_log.json im Repo.</p>
+      <div class="fr"><label>GitHub Owner (Username)</label>
+        <input type="text" id="gh_owner_inp" value="${cfg.owner}" placeholder="dein-github-username"></div>
+      <div class="fr"><label>Repository Name</label>
+        <input type="text" id="gh_repo_inp" value="${cfg.repo}" placeholder="goal-tracker"></div>
+      <div class="fr"><label>Personal Access Token (Contents: read+write)</label>
+        <input type="text" id="gh_token_inp" value="${cfg.token}" placeholder="github_pat_..." autocomplete="off" style="font-family:monospace;font-size:12px"></div>
+      <div class="rbtns">
+        <button class="btn btnp" onclick="saveGhCfg()">💾 Speichern</button>
+        <button class="btn" onclick="testGhCfg()">🔗 Verbindung testen</button>
+      </div>
+      <div id="gh-status" style="font-size:12px;color:var(--mu);margin-top:8px"></div>
+    </div>`);
+}
+
+function saveGhCfg(){
+  localStorage.setItem('gh_owner', el('gh_owner_inp').value.trim());
+  localStorage.setItem('gh_repo',  el('gh_repo_inp').value.trim());
+  localStorage.setItem('gh_token', el('gh_token_inp').value.trim());
+  setHtml('gh-status','✓ Gespeichert.');
+}
+
+async function testGhCfg(){
+  saveGhCfg();
+  const cfg=ghCfg();
+  if(!cfg.token||!cfg.owner||!cfg.repo){setHtml('gh-status','⚠ Bitte alle Felder ausfüllen.');return;}
+  setHtml('gh-status','Verbinde...');
+  try{
+    const r=await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/activity_log.json`,
+      {headers:{'Authorization':'token '+cfg.token,'Accept':'application/vnd.github.v3+json'}});
+    if(r.ok||r.status===404){setHtml('gh-status','✓ Verbindung OK.');}
+    else{setHtml('gh-status',`✗ Fehler ${r.status}: ${r.statusText}`);}
+  }catch(e){setHtml('gh-status','✗ Netzwerkfehler: '+e.message);}
+}
+
+function downloadAll(){
+  const all={};
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);try{all[k]=JSON.parse(localStorage.getItem(k));}catch{all[k]=localStorage.getItem(k);}}
+  const blob=new Blob([JSON.stringify(all,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='goal_tracker_backup.json';a.click();
+}
+
+function importData(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);let count=0;
+        for(const[k,v]of Object.entries(data)){
+          localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));count++;
+        }
+        alert(count+' Einträge importiert. Seite wird neu geladen.');location.reload();
+      }catch(ex){alert('Importfehler: '+ex.message);}
+    };reader.readAsText(file);
+  };inp.click();
+}
+function copyRep(){const t=buildReport(6);navigator.clipboard.writeText(t).then(()=>alert('Report kopiert!')).catch(()=>setHtml('rep-prev',`<div class="ebox">${t}</div>`));}
+function showRep(){setHtml('rep-prev',`<div class="ebox">${buildReport(6)}</div>`);}
+function copyAll(){
+  const all={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);try{all[k]=JSON.parse(localStorage.getItem(k));}catch{all[k]=localStorage.getItem(k);}}
+  const t=JSON.stringify(all,null,2);
+  navigator.clipboard.writeText(t).then(()=>alert('Alle Daten kopiert!')).catch(()=>setHtml('all-prev',`<div class="ebox">${t.slice(0,2000)}...</div>`));
+}
+function showAll(){
+  const all={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);try{all[k]=JSON.parse(localStorage.getItem(k));}catch{all[k]=localStorage.getItem(k);}}
+  const t=JSON.stringify(all,null,2);
+  setHtml('all-prev',`<div class="ebox">${t.slice(0,3000)}${t.length>3000?'\n...(gekürzt)':''}</div>`);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+document.getElementById('hdate').textContent=today().toLocaleDateString('de-AT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+try{renderToday();}catch(e){console.error('init',e);}
+</script>
+</body>
+</html>
