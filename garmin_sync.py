@@ -33,26 +33,28 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def load_garmin_client() -> Garmin:
     token_json = os.environ.get("GARMIN_TOKENS")
+    tmpdir = tempfile.mkdtemp()
+
     if token_json:
         # GitHub Actions path: restore token files from secret
         token_files = json.loads(token_json)
-        tmpdir = tempfile.mkdtemp()
         for fname, content in token_files.items():
             with open(os.path.join(tmpdir, fname), "w", encoding="utf-8") as f:
                 f.write(content)
-        client = Garmin()
-        client.garth.load(tmpdir)
-        print(f"Authenticated via GARMIN_TOKENS secret.")
+        print("Authenticated via GARMIN_TOKENS secret.")
     else:
-        # Local path: use ~/.garth if it exists
+        # Local path: use ~/.garth
         garth_dir = os.path.expanduser("~/.garth")
         if not os.path.isdir(garth_dir):
             print("ERROR: No GARMIN_TOKENS env var and no ~/.garth directory.")
             print("Run garmin_token_setup.py first.")
             exit(1)
-        client = Garmin()
-        client.garth.load(garth_dir)
-        print(f"Authenticated via ~/.garth")
+        tmpdir = garth_dir
+        print("Authenticated via ~/.garth")
+
+    # Load tokens from the tokenstore directory
+    client = Garmin()
+    client.login(tokenstore=tmpdir)
     return client
 
 

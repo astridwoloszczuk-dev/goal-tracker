@@ -28,17 +28,14 @@ def prompt_mfa():
     return input("MFA code (check email or authenticator app): ")
 
 print("\nLogging in to Garmin Connect...")
+tmpdir = tempfile.mkdtemp()
 try:
     client = Garmin(email=email, password=password, prompt_mfa=prompt_mfa)
-    client.login()
+    client.login(tokenstore=tmpdir)
     print("Login successful.\n")
 except Exception as e:
     print(f"Login failed: {e}")
     exit(1)
-
-# Save garth tokens to a temp directory, then read as dict
-tmpdir = tempfile.mkdtemp()
-client.garth.dump(tmpdir)
 
 token_files = {}
 for fname in os.listdir(tmpdir):
