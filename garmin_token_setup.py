@@ -10,10 +10,10 @@ Usage:
     python garmin_token_setup.py
 """
 
+import getpass
 import json
 import os
 import tempfile
-import getpass
 
 try:
     from garminconnect import Garmin
@@ -29,14 +29,14 @@ def prompt_mfa():
 
 print("\nLogging in to Garmin Connect...")
 try:
-    client = Garmin(email, password, prompt_mfa=prompt_mfa)
+    client = Garmin(email=email, password=password, prompt_mfa=prompt_mfa)
     client.login()
     print("Login successful.\n")
 except Exception as e:
     print(f"Login failed: {e}")
     exit(1)
 
-# Dump garth tokens to a temp directory, then read as dict
+# Save garth tokens to a temp directory, then read as dict
 tmpdir = tempfile.mkdtemp()
 client.garth.dump(tmpdir)
 
