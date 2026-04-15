@@ -250,7 +250,7 @@ Respond with ONLY valid JSON, no markdown, no commentary:
     print("Calling Claude API...")
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=600,
+        max_tokens=1024,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
     )
