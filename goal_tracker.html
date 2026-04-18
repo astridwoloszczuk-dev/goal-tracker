@@ -199,6 +199,56 @@ function sd(dkey,data){ss('d_'+dkey,data);}
 function getSess(dkey){return sg('s_'+dkey)||[];}
 function saveSess(dkey,arr){ss('s_'+dkey,arr);}
 
+// ── SUPABASE SYNC ─────────────────────────────────────────────────
+const SB_URL=https://ykbabwkyojlwculjmbrw.supabase.co;
+const SB_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrYmFid2t5b2psd2N1bGptYnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOj;
+
+async function sbReq(path,method,body){
+  if(!SB_URL||SB_URL.startsWith('YOUR_'))return;
+  try{
+    await fetch(SB_URL+'/rest/v1/'+path,{
+      method:method||'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:body!=null?JSON.stringify(body):undefined,
+    });
+  }catch(e){console.warn('Supabase sync:',e);}
+}
+
+async function syncDayHabits(dkey){
+  await sbReq('daily_habits','POST',{
+    date:dkey,
+    water_glasses:sg('wat_'+dkey)||0,
+    mirror:getWbar('mirror',dkey),
+    protein:getWbar('protein',dkey),
+    stretch:getWbar('stretch',dkey),
+    alcohol:getWbar('alc',dkey),
+  });
+}
+
+async function syncCardioGym(dkey){
+  const rows=[];
+  for(let i=0;i<4;i++)rows.push({date:dkey,type:'cardio',slot_index:i,value:getWbar('cardio_'+i,dkey)});
+  for(let i=0;i<3;i++)rows.push({date:dkey,type:'gym',slot_index:i,value:getWbar('fit_'+i,dkey)});
+  await sbReq('cardio_gym','POST',rows);
+}
+
+async function syncGolfSessions(dkey){
+  await sbReq('golf_sessions?date=eq.'+dkey,'DELETE');
+  const sess=getSess(dkey);
+  if(sess.length>0)await sbReq('golf_sessions','POST',sess.map(s=>({date:dkey,cat:s.cat,opt_id:s.optId,type:s.type,slot:s.slot,label:s.label,extra_value:s.ev})));
+}
+
+async function syncRounds(){
+  const rounds=sg('rounds')||[];
+  await sbReq('golf_rounds?date=gte.2020-01-01','DELETE');
+  if(rounds.length>0)await sbReq('golf_rounds','POST',rounds.map(r=>({date:r.date,course:r.course||'',comp:r.comp||false,notes:r.notes||'',holes_data:r.holesData||null})));
+}
+
+async function syncVacation(weekDkey,isVac){
+  if(isVac)await sbReq('vacation_weeks','POST',{week_start:weekDkey});
+  else await sbReq('vacation_weeks?week_start=eq.'+weekDkey,'DELETE');
+}
+
 // ── DATE UTILS ───────────────────────────────────────────────────
 function today(){return new Date();}
 function dk(d){return d.toISOString().slice(0,10);}
@@ -250,6 +300,8 @@ function tapWbar(barId,dkey,maxVal){
   maxVal=maxVal||2;
   const cur=getWbar(barId,dkey);
   setWbar(barId,dkey,cur>=maxVal?0:cur+1);
+  if(barId.startsWith('cardio_')||barId.startsWith('fit_'))syncCardioGym(dkey);
+  else syncDayHabits(dkey);
   go(CUR);
 }
 
@@ -325,8 +377,8 @@ function hydrationHtml(dkey){
   h+=`</div></div>`;
   return h;
 }
-function tapGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,Math.min(GLASSES,n+1));go(CUR);}
-function rmGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,Math.max(0,n-1));go(CUR);}
+function tapGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,Math.min(GLASSES,n+1));syncDayHabits(dkey);go(CUR);}
+function rmGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,Math.max(0,n-1));syncDayHabits(dkey);go(CUR);}
 
 // ── SLOT COUNTS (golf) ────────────────────────────────────────────
 function getSlotCounts(){
@@ -473,12 +525,13 @@ function addSess(dkey){
   const sess=getSess(dkey);
   sess.push({cat:catId,optId:opt.id,type:opt.type,slot:opt.slot,label:opt.label,ev});
   saveSess(dkey,sess);
-  logActivity(dkey,'golf'); // golf session added
+  syncGolfSessions(dkey);
+  logActivity(dkey,'golf');
   go(CUR);
 }
 
 function remSess(dkey,idx){
-  const sess=getSess(dkey);sess.splice(idx,1);saveSess(dkey,sess);go(CUR);
+  const sess=getSess(dkey);sess.splice(idx,1);saveSess(dkey,sess);syncGolfSessions(dkey);go(CUR);
 }
 
 // ── TODAY ─────────────────────────────────────────────────────────
@@ -603,6 +656,7 @@ function tapFitSlot(slotIdx){
 function togVac(chk){
   const vacDkey=dk(wmon(today()));
   ss('vac_'+vacDkey, chk.checked);
+  syncVacation(vacDkey, chk.checked);
   go(CUR);
 }
 
@@ -862,12 +916,13 @@ function subRound(){
   const r={date:gv('rf_d'),course:gv('rf_c'),comp:el('rf_co').checked,notes:gv('rf_n'),holesData};
   if(editIdx!==null)rounds[editIdx]=r;else rounds.unshift(r);
   ss('rounds',rounds);editIdx=null;
-  logActivity(gv('rf_d'),'golf'); // round recorded
+  syncRounds();
+  logActivity(gv('rf_d'),'golf');
   renderRounds();
 }
 function cancelR(){editIdx=null;renderRounds();}
 function editR(i){editIdx=i;renderRounds();setTimeout(()=>el('pg-rounds').scrollIntoView({behavior:'smooth'}),100);}
-function delR(i){if(!confirm('Runde löschen?'))return;rounds.splice(i,1);ss('rounds',rounds);renderRounds();}
+function delR(i){if(!confirm('Runde löschen?'))return;rounds.splice(i,1);ss('rounds',rounds);syncRounds();renderRounds();}
 
 // ── ANALYTICS ─────────────────────────────────────────────────────
 function getWeekData(weeksBack){
