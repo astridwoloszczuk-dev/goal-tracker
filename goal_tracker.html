@@ -200,8 +200,8 @@ function getSess(dkey){return sg('s_'+dkey)||[];}
 function saveSess(dkey,arr){ss('s_'+dkey,arr);}
 
 // ── SUPABASE SYNC ─────────────────────────────────────────────────
-const SB_URL=https://ykbabwkyojlwculjmbrw.supabase.co;
-const SB_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrYmFid2t5b2psd2N1bGptYnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOj;
+const SB_URL='https://ykbabwkyojlwculjmbrw.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrYmFid2t5b2psd2N1bGptYnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOj';
 
 async function sbReq(path,method,body){
   if(!SB_URL||SB_URL.startsWith('YOUR_'))return;
