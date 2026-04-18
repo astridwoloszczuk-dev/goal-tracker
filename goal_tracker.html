@@ -128,11 +128,11 @@ textarea{resize:vertical;min-height:60px}
 .ebox{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px;font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:280px;overflow-y:auto;margin-top:10px;line-height:1.5}
 /* HOLE BOXES */
 .hole-box{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;margin-bottom:8px}
-.hole-hdr{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--mu);font-weight:600;margin-bottom:8px}
+.hole-hdr{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--ye);font-weight:600;margin-bottom:8px}
 .hole-r1{display:flex;gap:10px;align-items:flex-end;margin-bottom:8px}
 .hole-r2{display:flex;gap:5px;flex-wrap:wrap}
 .hole-nf{display:flex;flex-direction:column;gap:3px}
-.hole-lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px}
+.hole-lbl{font-size:10px;color:var(--ye);text-transform:uppercase;letter-spacing:.5px}
 .hole-num{width:56px;padding:6px 4px;font-size:20px;font-weight:700;text-align:center;border:1px solid var(--b2);border-radius:7px;background:var(--bg);color:var(--tx);-webkit-appearance:none;-moz-appearance:textfield}
 .hole-num::-webkit-inner-spin-button,.hole-num::-webkit-outer-spin-button{-webkit-appearance:none}
 .hole-fw{display:flex;align-items:center;gap:6px;padding-bottom:2px}
@@ -1102,8 +1102,14 @@ async function testGhCfg(){
 function downloadAll(){
   const all={};
   for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);try{all[k]=JSON.parse(localStorage.getItem(k));}catch{all[k]=localStorage.getItem(k);}}
-  const blob=new Blob([JSON.stringify(all,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='goal_tracker_backup.json';a.click();
+  const json=JSON.stringify(all,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  // Try Web Share API first (works on Android Chrome for saving to files)
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[new File([blob],'goal_tracker_backup.json',{type:'application/json'})]})){
+    navigator.share({files:[new File([blob],'goal_tracker_backup.json',{type:'application/json'})],title:'Goal Tracker Backup'});
+  } else {
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='goal_tracker_backup.json';a.click();
+  }
 }
 
 function importData(){
