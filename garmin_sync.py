@@ -395,10 +395,10 @@ def format_tracker_for_prompt(data: dict, today_str: str, week_start: str) -> st
     for i, name in enumerate(CARDIO_NAMES):
         v = cardio_slots.get(i, 0)
         lines.append(f"  {name}: {'✓' if v >= 1 else '–'}{' (extra)' if v >= 2 else ''}")
-    lines.append("GYM THIS WEEK:")
+    lines.append("GYM THIS WEEK (weights are NEVER on Garmin — tracker is the only source):")
     weights_done = sum(1 for i in [0,1] if gym_slots.get(i,0) >= 1)
     mobility_done = gym_slots.get(2, 0) >= 1
-    lines.append(f"  Weights sessions: {weights_done}/2 (target 2)")
+    lines.append(f"  Weights sessions: {weights_done}/2 (target 2) ← trust this, not Garmin")
     lines.append(f"  Mobility:         {'✓' if mobility_done else '–'} (target 1+)")
     lines.append("")
 
@@ -448,6 +448,14 @@ ATHLETE GOALS & CONTEXT:
   Target: 3 runs/week (Zone 2 ~7.5km, 1 long run, 1 tempo/interval), total ~20-25km.
 - STRENGTH: Muscle mass. 2× weights/week with PT Martin + protein ≥90g/day.
 - HABITS: Hydration 6 glasses/day, alcohol ≤3×/week, stretching/foam rolling 5×/week, mobility 1×/week.
+
+CRITICAL — DATA SOURCES:
+- Weights sessions are ALMOST NEVER logged on Garmin (the watch gets in the way). The ONLY reliable source
+  for weights is the tracker app data (GYM THIS WEEK section). If the tracker shows weights done, they happened.
+  Do NOT say weights are missing or unknown if the tracker confirms them.
+- Running, cycling, and other cardio appear in Garmin activities.
+- Golf rounds and range sessions appear in the tracker's GOLF SESSIONS section.
+
 TONE: Direct and honest. Push her. No sugarcoating. Acknowledge constraints but don't use them as excuses.
 """
 
