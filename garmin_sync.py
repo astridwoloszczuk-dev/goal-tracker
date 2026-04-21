@@ -466,7 +466,7 @@ her injury recovery (back to full training April 13 2026) and upcoming golf tour
 Keep responses exactly as requested in terms of length and format."""
 
 
-def build_daily_brief(metrics: dict, garmin_acts: list, tracker: dict, today_str: str, week_start: str) -> str:
+def build_daily_brief(metrics: dict, garmin_acts: list, manual_acts: list, tracker: dict, today_str: str, week_start: str) -> str:
     """Ask Claude for a short daily coaching note (3-4 sentences)."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -474,7 +474,7 @@ def build_daily_brief(metrics: dict, garmin_acts: list, tracker: dict, today_str
 
     client = anthropic.Anthropic(api_key=api_key)
     tracker_text = format_tracker_for_prompt(tracker, today_str, week_start)
-    activities_text = format_activities_for_prompt(garmin_acts, [])
+    activities_text = format_activities_for_prompt(garmin_acts, manual_acts)
 
     readiness_line = ""
     if metrics:
@@ -504,7 +504,7 @@ Be direct. Start with her name 'Astrid,'."""
     return msg.content[0].text.strip()
 
 
-def build_weekly_review(metrics: dict, garmin_acts: list, tracker: dict, today_str: str, week_start: str) -> str:
+def build_weekly_review(metrics: dict, garmin_acts: list, manual_acts: list, tracker: dict, today_str: str, week_start: str) -> str:
     """Ask Claude for a full weekly coaching email (Sunday only)."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -512,7 +512,7 @@ def build_weekly_review(metrics: dict, garmin_acts: list, tracker: dict, today_s
 
     client = anthropic.Anthropic(api_key=api_key)
     tracker_text = format_tracker_for_prompt(tracker, today_str, week_start)
-    activities_text = format_activities_for_prompt(garmin_acts, [])
+    activities_text = format_activities_for_prompt(garmin_acts, manual_acts)
 
     prompt = f"""{GOALS_CONTEXT}
 
@@ -595,13 +595,16 @@ def main():
     # ── Daily brief → written into garmin_status.js for the app ──
     wstart  = week_start_for(TODAY)
     tracker = fetch_tracker_data(wstart, TODAY)
+    print(f"\nTracker Supabase data preview (cardio_gym rows this week: {len(tracker['cardgym'])}):")
+    for row in tracker['cardgym']:
+        print(f"  {row}")
 
     weekly_only = os.environ.get("WEEKLY_REVIEW", "").lower() == "true"
 
     if weekly_only:
         # Sunday evening run: send weekly email, don't overwrite garmin_status.js
         print("\nWeekly review run — building email...")
-        body = build_weekly_review(metrics, garmin_acts, tracker, TODAY, wstart)
+        body = build_weekly_review(metrics, garmin_acts, manual_acts, tracker, TODAY, wstart)
         print(f"\n--- WEEKLY REVIEW ---\n{body}\n--- END ---\n")
         send_coaching_email(f"Weekly Coaching Review — w/e {TODAY}", body)
         print("\nDone.")
@@ -609,7 +612,7 @@ def main():
 
     # Normal morning run: generate brief and embed in garmin_status.js
     print("\nBuilding daily brief...")
-    brief = build_daily_brief(metrics, garmin_acts, tracker, TODAY, wstart)
+    brief = build_daily_brief(metrics, garmin_acts, manual_acts, tracker, TODAY, wstart)
     print(f"\n--- DAILY BRIEF ---\n{brief}\n--- END ---\n")
 
     write_output(metrics, readiness, brief)
