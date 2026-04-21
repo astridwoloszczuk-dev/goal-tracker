@@ -34,7 +34,7 @@ jobs:
           SMTP_PASSWORD:      ${{ secrets.SMTP_PASSWORD }}
           COACHING_TO:        ${{ secrets.COACHING_TO }}
           # Set to "true" only for the Sunday midnight run
-          WEEKLY_REVIEW:      "true"
+          WEEKLY_REVIEW:      ${{ (github.event.schedule == '0 22 * * 0') && 'true' || 'false' }}
         run: python garmin_sync.py
 
       - name: Commit updated garmin_status.js
