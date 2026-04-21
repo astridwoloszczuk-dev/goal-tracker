@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Golf Scorecard</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+@page { size: A4 portrait; margin: 0; }
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: white;
+  color: #000;
+}
+
+.print-note {
+  font-size: 11px;
+  color: #555;
+  padding: 8mm 10mm 4mm;
+  line-height: 1.7;
+}
+@media print { .print-note { display: none; } }
+
+/* A4 = 2×2 grid of A6 cards (105mm × 148.5mm each) */
+.page {
+  width: 210mm;
+  height: 297mm;
+  display: grid;
+  grid-template-columns: 105mm 105mm;
+  grid-template-rows: 148.5mm 148.5mm;
+  page-break-after: always;
+}
+.page:last-child { page-break-after: auto; }
+
+/* ── CARD ── */
+.card {
+  width: 105mm;
+  height: 148.5mm;
+  padding: 3mm 3.5mm;
+  border: 0.4pt solid #bbb;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── FRONT HEADER: title + 3 write-in fields ── */
+.front-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2.5mm;
+  padding-bottom: 2mm;
+  border-bottom: 1pt solid #000;
+  flex-shrink: 0;
+}
+.front-title-text { font-size: 8.5pt; font-weight: bold; letter-spacing: 0.3pt; }
+.comp-wrap { display: flex; align-items: center; gap: 1.5mm; }
+.comp-box  { width: 5mm; height: 5mm; border: 0.6pt solid #000; border-radius: 0.5pt; flex-shrink: 0; }
+.comp-lbl  { font-size: 6pt; text-transform: uppercase; color: #555; }
+
+.header-field {
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  margin-bottom: 2mm;
+  flex-shrink: 0;
+}
+.header-field:last-of-type { margin-bottom: 3mm; }
+.hf-lbl  { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #555; width: 13mm; flex-shrink: 0; }
+.hf-line { flex: 1; border-bottom: 0.5pt solid #000; height: 4mm; }
+
+/* ── BACK MINI-HEADER ── */
+.back-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1.5mm;
+  margin-bottom: 2mm;
+  border-bottom: 0.8pt solid #000;
+  flex-shrink: 0;
+}
+.back-title { font-size: 8pt; font-weight: bold; }
+.back-sub   { font-size: 6pt; color: #666; }
+
+/* ── COLUMN HEADERS ── */
+.col-hdr {
+  display: grid;
+  grid-template-columns: 7mm 9mm 13mm 11.5mm 11.5mm 11.5mm 11.5mm 11.5mm 11.5mm;
+  margin-bottom: 0.5mm;
+  flex-shrink: 0;
+}
+.ch {
+  font-size: 5.5pt;
+  text-align: center;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.2pt;
+  padding: 1mm 0;
+}
+.ch.left  { text-align: left; font-size: 4.5pt; color: #777; }
+.ch.green { color: #15803d; }
+.ch.red   { color: #b91c1c; }
+
+/* ── HOLE ROWS ── */
+.holes { display: flex; flex-direction: column; }
+
+.hole-row {
+  display: grid;
+  grid-template-columns: 7mm 9mm 13mm 11.5mm 11.5mm 11.5mm 11.5mm 11.5mm 11.5mm;
+  height: 11.5mm;
+  border-bottom: 0.25pt solid #d0d0d0;
+  align-items: center;
+}
+.hole-row:nth-child(odd) { background: #f7f7f7; }
+
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  border-right: 0.2pt solid #e0e0e0;
+  padding: 0 0.5mm;
+}
+.cell:last-child { border-right: none; }
+.cell.left { justify-content: flex-start; }
+
+.hole-num { font-size: 7.5pt; font-weight: bold; color: #333; }
+.par-val  { font-size: 7.5pt; color: #555; }
+
+.score-box {
+  width: 11mm; height: 9mm;
+  border: 0.7pt solid #000; border-radius: 1.5pt; background: #fff;
+}
+.cb-green {
+  width: 8.5mm; height: 8.5mm;
+  border: 0.6pt solid #16a34a; border-radius: 1pt; background: #f0fdf4;
+}
+.cb-red {
+  width: 8.5mm; height: 8.5mm;
+  border: 0.6pt solid #dc2626; border-radius: 1pt; background: #fff5f5;
+}
+.par3-fw { font-size: 8pt; color: #ccc; }
+
+/* ── NOTES BLOCK (back side) ── */
+.notes-block {
+  flex: 1;
+  border-top: 0.6pt solid #000;
+  margin-top: 2.5mm;
+  padding-top: 2mm;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.notes-heading {
+  font-size: 6pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5pt;
+  color: #888;
+  margin-bottom: 1.5mm;
+  flex-shrink: 0;
+}
+.notes-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+}
+.notes-line-rule {
+  border-bottom: 0.4pt solid #bbb;
+  height: 0;
+}
+
+/* ── LEGEND (front side only) ── */
+.legend {
+  border-top: 0.3pt solid #ddd;
+  padding-top: 1.5mm;
+  margin-top: 2mm;
+  font-size: 4.5pt;
+  color: #666;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+.legend-row { display: flex; gap: 2mm; flex-wrap: wrap; }
+.lg.green { color: #15803d; }
+.lg.red   { color: #b91c1c; }
+
+@media print {
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head>
+<body>
+
+<div class="print-note">
+  <b>Print instructions:</b> Print Page 1 (Front 9). Return the same sheet to the printer and print Page 2 (Back 9) on the reverse. Cut into 4 equal quarters — each piece is a complete double-sided scorecard. Since all 4 cards per page are identical, alignment doesn't matter.
+</div>
+
+<script>
+// Pre-fill your home course pars (index 0 = hole 1). null = write by hand.
+const COURSE_PARS = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
+
+function par(i)   { return COURSE_PARS[i]; }
+function isPar3(i){ return par(i) === 3; }
+
+function holeRow(i) {
+  const p  = par(i);
+  const p3 = isPar3(i);
+  return `
+    <div class="hole-row">
+      <div class="cell left"><span class="hole-num">${i+1}</span></div>
+      <div class="cell"><span class="par-val">${p != null ? p : ''}</span></div>
+      <div class="cell"><div class="score-box"></div></div>
+      <div class="cell">${p3 ? '<span class="par3-fw">—</span>' : '<div class="cb-green"></div>'}</div>
+      <div class="cell"><div class="cb-green"></div></div>
+      <div class="cell"><div class="cb-green"></div></div>
+      <div class="cell"><div class="cb-red"></div></div>
+      <div class="cell"><div class="cb-red"></div></div>
+      <div class="cell"><div class="cb-red"></div></div>
+    </div>`;
+}
+
+function colHeaders() {
+  return `
+    <div class="col-hdr">
+      <div class="ch left">#</div>
+      <div class="ch">Par</div>
+      <div class="ch">Score</div>
+      <div class="ch green">FW</div>
+      <div class="ch green">GIR</div>
+      <div class="ch green">U&D</div>
+      <div class="ch red">3P</div>
+      <div class="ch red">DC</div>
+      <div class="ch red">B7</div>
+    </div>`;
+}
+
+function frontCard() {
+  let holes = '';
+  for (let i = 0; i < 9; i++) holes += holeRow(i);
+  return `
+  <div class="card">
+    <div class="front-title">
+      <div class="front-title-text">⛳ Golf Scorecard</div>
+      <div class="comp-wrap">
+        <div class="comp-box"></div>
+        <span class="comp-lbl">Comp</span>
+      </div>
+    </div>
+    <div class="header-field">
+      <span class="hf-lbl">Date</span><div class="hf-line"></div>
+    </div>
+    <div class="header-field">
+      <span class="hf-lbl">Course</span><div class="hf-line"></div>
+    </div>
+    <div class="header-field">
+      <span class="hf-lbl">Tee</span><div class="hf-line"></div>
+    </div>
+    ${colHeaders()}
+    <div class="holes">${holes}</div>
+    <div class="legend">
+      <div class="legend-row">
+        <span class="lg green">FW Fairway (skip Par 3)</span>
+        <span class="lg green">GIR Green in regulation</span>
+        <span class="lg green">U&D Up &amp; down (miss)</span>
+        <span class="lg red">3P 3-putt+</span>
+        <span class="lg red">DC Driver choke</span>
+        <span class="lg red">B7 Score ≥ 7</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function backCard() {
+  let holes = '';
+  for (let i = 9; i < 18; i++) holes += holeRow(i);
+  // Build 5 ruled lines to fill the notes block
+  const lines = Array(5).fill('<div class="notes-line-rule"></div>').join('');
+  return `
+  <div class="card">
+    <div class="back-header">
+      <div class="back-title">Back 9</div>
+      <div class="back-sub">↑ continued from other side</div>
+    </div>
+    ${colHeaders()}
+    <div class="holes">${holes}</div>
+    <div class="notes-block">
+      <div class="notes-heading">Notes</div>
+      <div class="notes-lines">${lines}</div>
+    </div>
+  </div>`;
+}
+
+document.write(`
+  <div class="page">
+    ${frontCard()}${frontCard()}${frontCard()}${frontCard()}
+  </div>
+  <div class="page">
+    ${backCard()}${backCard()}${backCard()}${backCard()}
+  </div>
+`);
+</script>
+</body>
+</html>
