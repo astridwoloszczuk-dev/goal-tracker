@@ -534,6 +534,44 @@ function remSess(dkey,idx){
   const sess=getSess(dkey);sess.splice(idx,1);saveSess(dkey,sess);syncGolfSessions(dkey);go(CUR);
 }
 
+// ── TOURNAMENT COUNTDOWN ─────────────────────────────────────────
+const TOURNAMENTS=[
+  {name:'NÖ Meisterschaften',start:'2026-05-14',end:'2026-05-17'},
+  {name:'Österr. Staatsmeisterschaften',start:'2026-05-22',end:'2026-05-25'},
+];
+function tournamentCountdownHtml(){
+  const todayStr=dkToday();
+  const active=TOURNAMENTS.filter(t=>t.start<=todayStr&&todayStr<=t.end);
+  const upcoming=TOURNAMENTS.filter(t=>t.start>todayStr);
+  if(!active.length&&!upcoming.length)return'';
+  let h=`<div class="card" style="padding:12px 16px">`;
+  for(let i=0;i<active.length;i++){
+    const t=active[i];
+    h+=`<div style="display:flex;align-items:center;gap:12px${i>0?';margin-top:8px;padding-top:8px;border-top:1px solid var(--b1)':''}">
+      <div style="font-size:28px;line-height:1">🏆</div>
+      <div><div style="font-size:14px;font-weight:700;color:var(--ac)">${t.name}</div>
+      <div style="font-size:12px;color:var(--gn);font-weight:700">LÄUFT JETZT · ${t.start} – ${t.end}</div></div>
+    </div>`;
+  }
+  for(let i=0;i<upcoming.length;i++){
+    const t=upcoming[i];
+    const days=Math.round((new Date(t.start+'T12:00:00')-new Date(todayStr+'T12:00:00'))/86400000);
+    const col=days<=7?'var(--rd)':days<=14?'var(--ye)':'var(--mu)';
+    const sep=(active.length||i>0)?';margin-top:8px;padding-top:8px;border-top:1px solid var(--b1)':'';
+    h+=`<div style="display:flex;align-items:center;gap:12px${sep}">
+      <div style="text-align:center;min-width:44px">
+        <div style="font-size:26px;font-weight:800;color:${col};line-height:1">${days}</div>
+        <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-top:1px">Tage</div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--tx)">${t.name}</div>
+        <div style="font-size:11px;color:var(--mu)">${t.start} – ${t.end}</div>
+      </div>
+    </div>`;
+  }
+  return h+'</div>';
+}
+
 // ── TODAY ─────────────────────────────────────────────────────────
 function renderToday(){
   const tdkey=dkToday();
@@ -565,8 +603,24 @@ function renderToday(){
           ${metaBits.length?`<div style="font-size:11px;color:var(--mu);margin-top:6px">${metaBits.join(' · ')}</div>`:''}
         </div>
       </div>
+      ${window.GARMIN.brief?`<div style="border-top:1px solid var(--b1);margin-top:10px;padding-top:10px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--mu);margin-bottom:5px">🎯 Today's Focus</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--tx)">${window.GARMIN.brief}</div>
+      </div>`:''}
+    </div>`;
+  } else if(window.GARMIN&&window.GARMIN.date){
+    const daysOld=Math.round((new Date(todayKey+'T12:00:00')-new Date(window.GARMIN.date+'T12:00:00'))/86400000);
+    h+=`<div class="card" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-color:rgba(251,191,36,.35)">
+      <span style="font-size:22px;flex-shrink:0">⚠️</span>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--ye)">Garmin-Daten ${daysOld} Tag${daysOld!==1?'e':''} alt</div>
+        <div style="font-size:11px;color:var(--mu)">Zuletzt: ${window.GARMIN.date} · GitHub Actions prüfen oder GARMIN_TOKENS erneuern</div>
+      </div>
     </div>`;
   }
+
+  // Tournament countdown
+  h+=tournamentCountdownHtml();
 
   // Vacation toggle
   h+=`<div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 16px">
@@ -749,7 +803,7 @@ function deriveRoundStats(hd){
   const db=played.filter(h=>Number(h.score)>=Number(h.par)+2).length;
   const b5=played.filter(h=>Number(h.par)===5&&Number(h.score)>=6).length;
   const dc=played.filter(h=>h.dc).length;
-  const bs=played.filter(h=>h.bs).length;
+  const bs=played.filter(h=>Number(h.score)>=7).length;
   return{n,delta,gir,fw,ud,p3,db,b5,dc,bs};
 }
 
@@ -789,7 +843,6 @@ function holeBoxHtml(i){
       <div id="hud_wrap_${i}" style="display:inline"><label class="hole-toggle"><input type="checkbox" id="hud_${i}"> U&amp;D</label></div>
       <label class="hole-toggle"><input type="checkbox" id="h3p_${i}"> 3P</label>
       <label class="hole-toggle"><input type="checkbox" id="hdc_${i}"> DC</label>
-      <label class="hole-toggle"><input type="checkbox" id="hbs_${i}"> E9+</label>
     </div>
   </div>`;
 }
@@ -807,8 +860,10 @@ function onHoleGir(i){
   if(checked&&el('hud_'+i))el('hud_'+i).checked=false;
 }
 
-function renderRounds(){
-  rounds=sg('rounds')||[];
+// ── ROUNDS STATE ────────────────────────────────────────────────
+let roundMode='select'; // 'select' | 'scan' | 'manual'
+
+function roundStatsHtml(){
   const sc18=(v,n)=>v!==null&&n>0?v*18/n:null;
   const allStats=rounds.map(r=>getRoundStats(r));
   const allD=allStats.filter(s=>s.delta!==null&&s.n>0).map(s=>sc18(s.delta,s.n));
@@ -816,15 +871,16 @@ function renderRounds(){
   const girA=allStats.filter(s=>s.gir!==null&&s.n>0).map(s=>sc18(s.gir,s.n));
   const avg=arr=>arr.length?(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1):null;
   const avgD=avg(allD),avgC=avg(comD),avgG=avg(girA);
-  let h='';
-  if(rounds.length>0){
-    h+=`<div class="mgrid">
-      <div class="mc"><div class="mv">${avgD!==null?(Number(avgD)>0?'+':'')+Number(avgD).toFixed(1):'—'}</div><div class="ml">Ø Par /18</div></div>
-      <div class="mc"><div class="mv">${avgC!==null?(Number(avgC)>0?'+':'')+Number(avgC).toFixed(1):'—'}</div><div class="ml">Ø Comp /18</div></div>
-      <div class="mc"><div class="mv">${avgG?Number(avgG).toFixed(1):'—'}</div><div class="ml">Ø GIR /18</div></div>
-    </div>`;
-  }
-  h+=`<div class="card"><div class="ct">${editIdx!==null?'Bearbeiten':'Neue Runde'}</div>
+  if(!rounds.length)return'';
+  return`<div class="mgrid">
+    <div class="mc"><div class="mv">${avgD!==null?(Number(avgD)>0?'+':'')+Number(avgD).toFixed(1):'—'}</div><div class="ml">Ø Par /18</div></div>
+    <div class="mc"><div class="mv">${avgC!==null?(Number(avgC)>0?'+':'')+Number(avgC).toFixed(1):'—'}</div><div class="ml">Ø Comp /18</div></div>
+    <div class="mc"><div class="mv">${avgG?Number(avgG).toFixed(1):'—'}</div><div class="ml">Ø GIR /18</div></div>
+  </div>`;
+}
+
+function roundFormHtml(){
+  return`<div class="card"><div class="ct">${editIdx!==null?'Bearbeiten':'Neue Runde – Überprüfen &amp; Speichern'}</div>
     <div class="g2" style="margin-bottom:10px">
       <div class="fr"><label>Datum</label><input type="date" id="rf_d"></div>
       <div class="fr"><label>Platz</label><input type="text" id="rf_c" placeholder="Fontana"></div>
@@ -842,7 +898,50 @@ function renderRounds(){
       <button class="btn" onclick="cancelR()">Abbrechen</button>
     </div>
   </div>`;
+}
+
+function renderRounds(){
+  rounds=sg('rounds')||[];
+  let h=roundStatsHtml();
+
+  if(editIdx!==null){
+    h+=roundFormHtml();
+  } else if(roundMode==='select'){
+    const apiKey=localStorage.getItem('anthropic_key')||'';
+    h+=`<div class="card">
+      <div class="ct">Neue Runde</div>
+      <p style="font-size:13px;color:var(--mu);margin-bottom:12px">Ausgefüllte Scorecard abfotografieren – oder manuell eingeben.</p>
+      <div style="display:flex;gap:8px">
+        <button class="btn btnp" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px" onclick="startScan()">
+          <span style="font-size:18px">📷</span><span>Foto einlesen</span>
+        </button>
+        <button class="btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px" onclick="roundMode='manual';renderRounds()">
+          <span style="font-size:18px">✏️</span><span>Manuell</span>
+        </button>
+      </div>
+      ${!apiKey?`<div style="font-size:11px;color:var(--mu);margin-top:10px">📷 Foto-Scan benötigt Anthropic API-Key (in Export-Einstellungen konfigurieren).</div>`:''}
+    </div>`;
+  } else if(roundMode==='scan'){
+    h+=`<div class="card">
+      <div class="ct">Scorecard-Foto</div>
+      <p style="font-size:13px;color:var(--mu);margin-bottom:10px">Foto der ausgefüllten Scorecard aufnehmen oder aus Galerie wählen.</p>
+      <div id="scan-preview" style="display:none;margin-bottom:10px">
+        <img id="scan-img" style="width:100%;border-radius:8px;border:1px solid var(--b1);max-height:260px;object-fit:contain">
+      </div>
+      <div id="scan-status" style="font-size:12px;min-height:18px;margin-bottom:8px"></div>
+      <input type="file" id="scan-file" accept="image/*" capture="environment" style="display:none" onchange="onScanFile(this)">
+      <div class="rbtns">
+        <button class="btn btnp" onclick="el('scan-file').click()">📷 Foto wählen / aufnehmen</button>
+        <button class="btn" onclick="roundMode='select';renderRounds()">Abbrechen</button>
+      </div>
+    </div>`;
+  } else {
+    // manual
+    h+=roundFormHtml();
+  }
+
   setHtml('pg-rounds',h);
+
   if(editIdx!==null){
     const r=rounds[editIdx];
     setTimeout(()=>{
@@ -857,17 +956,17 @@ function renderRounds(){
         if(el('hud_'+i))el('hud_'+i).checked=!!hdata.ud;
         if(el('h3p_'+i))el('h3p_'+i).checked=!!hdata.p3;
         if(el('hdc_'+i))el('hdc_'+i).checked=!!hdata.dc;
-        if(el('hbs_'+i))el('hbs_'+i).checked=!!hdata.bs;
         onHolePar(i);onHoleGir(i);
       });
     },80);
   }
+
   if(rounds.length>0){
     let hist=`<div class="card"><div class="ct">Runden-Historie</div>`;
     rounds.forEach((r,i)=>{
       const s=getRoundStats(r);
-      const fmt=(v,n)=>v!==null&&n>0?v*18/n:null;
-      const dScaled=fmt(s.delta,s.n);
+      const sc18=(v,n)=>v!==null&&n>0?v*18/n:null;
+      const dScaled=sc18(s.delta,s.n);
       hist+=`<div class="rrow">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-weight:700;font-size:14px">${r.date||'—'}${r.course?' · '+r.course:''}</span>
@@ -887,7 +986,7 @@ function renderRounds(){
           ${s.db!==null?`<span class="${s.db>2?'bad':s.db>0?'warn':'good'}">Dbl:${s.db}</span>`:''}
           ${s.b5!==null?`<span>BP5:${s.b5}</span>`:''}
           ${s.dc!==null?`<span class="${s.dc>1?'bad':s.dc>0?'warn':'good'}">DC:${s.dc}</span>`:''}
-          ${s.bs!==null?`<span>B9+:${s.bs}</span>`:''}
+          ${s.bs!==null?`<span class="${s.bs>1?'bad':s.bs>0?'warn':'good'}">B7+:${s.bs}</span>`:''}
         </div>
         ${r.notes?`<div style="font-size:12px;color:var(--mu);margin-top:4px;font-style:italic">${r.notes}</div>`:''}
       </div>`;
@@ -896,6 +995,111 @@ function renderRounds(){
     el('pg-rounds').insertAdjacentHTML('beforeend',hist);
   }
 }
+
+// ── PHOTO SCAN ────────────────────────────────────────────────────
+function startScan(){
+  const apiKey=localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){
+    alert('Bitte zuerst Anthropic API-Key in den Export-Einstellungen konfigurieren.');
+    go('export');
+    return;
+  }
+  roundMode='scan';
+  renderRounds();
+}
+
+function onScanFile(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const preview=el('scan-preview'),img=el('scan-img');
+    if(preview&&img){preview.style.display='block';img.src=e.target.result;}
+    const status=el('scan-status');
+    if(status)status.innerHTML=`<span style="color:var(--mu)">⏳ Claude analysiert Scorecard…</span>`;
+    const apiKey=localStorage.getItem('anthropic_key')||'';
+    const base64=e.target.result.split(',')[1];
+    const mimeType=file.type||'image/jpeg';
+    try{
+      const data=await analyzeScorecard(base64,mimeType,apiKey);
+      if(status)status.innerHTML=`<span style="color:var(--gn)">✓ Daten extrahiert – bitte überprüfen und speichern.</span>`;
+      roundMode='manual';
+      renderRounds();
+      setTimeout(()=>fillRoundForm(data),100);
+    }catch(err){
+      if(status)status.innerHTML=`<span style="color:var(--rd)">✗ Fehler: ${err.message}</span>`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeScorecard(base64,mimeType,apiKey){
+  const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'x-api-key':apiKey,
+      'anthropic-version':'2023-06-01',
+      'content-type':'application/json',
+      'anthropic-dangerous-direct-browser-access':'true',
+    },
+    body:JSON.stringify({
+      model:'claude-haiku-4-5-20251001',
+      max_tokens:2048,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mimeType,data:base64}},
+        {type:'text',text:`This is a handwritten golf scorecard. Extract all data carefully.
+
+For each hole return:
+- hole: number 1-18
+- par: 3, 4 or 5 (null if unreadable)
+- score: strokes played (integer, null if blank)
+- fw: fairway hit ticked? (true/false — always false/null for par 3, no fairway)
+- gir: green in regulation ticked? (true/false)
+- ud: up & down ticked? (true/false — only relevant when no GIR)
+- p3: 3-putt ticked? (true/false)
+- dc: DC/driver choke ticked? (true/false)
+
+Also extract:
+- date: "YYYY-MM-DD" format or null
+- course: course name or null
+- comp: competitive checkbox ticked? (true/false)
+- notes: any written notes or null
+
+Return ONLY valid JSON, no markdown:
+{"date":null,"course":null,"comp":false,"notes":null,"holes":[{"hole":1,"par":4,"score":5,"fw":true,"gir":false,"ud":true,"p3":false,"dc":false}]}`}
+      ]}]
+    })
+  });
+  if(!resp.ok){
+    const err=await resp.json().catch(()=>({}));
+    throw new Error(err.error?.message||`HTTP ${resp.status}`);
+  }
+  const data=await resp.json();
+  let raw=data.content[0].text.trim();
+  if(raw.startsWith('```')){raw=raw.split('\n').slice(1,-1).join('\n');}
+  return JSON.parse(raw);
+}
+
+function fillRoundForm(data){
+  if(data.date)sv('rf_d',data.date);
+  if(data.course)sv('rf_c',data.course);
+  if(data.notes)sv('rf_n',data.notes);
+  if(el('rf_co'))el('rf_co').checked=!!data.comp;
+  const holes=data.holes||data.holesData||[];
+  holes.forEach(h=>{
+    const idx=(h.hole!=null?Number(h.hole)-1:null);
+    if(idx==null||idx<0||idx>=18)return;
+    if(el('hp_'+idx))el('hp_'+idx).value=h.par!=null?h.par:'';
+    if(el('hs_'+idx))el('hs_'+idx).value=h.score!=null?h.score:'';
+    if(el('hfw_'+idx))el('hfw_'+idx).checked=!!h.fw;
+    if(el('hgir_'+idx))el('hgir_'+idx).checked=!!h.gir;
+    if(el('hud_'+idx))el('hud_'+idx).checked=!!h.ud;
+    if(el('h3p_'+idx))el('h3p_'+idx).checked=!!h.p3;
+    if(el('hdc_'+idx))el('hdc_'+idx).checked=!!h.dc;
+    onHolePar(idx);onHoleGir(idx);
+  });
+}
+
 function subRound(){
   if(!gv('rf_d'))return;
   const holesData=Array.from({length:18},(_,i)=>({
@@ -906,7 +1110,6 @@ function subRound(){
     ud:el('hud_'+i)?el('hud_'+i).checked:false,
     p3:el('h3p_'+i)?el('h3p_'+i).checked:false,
     dc:el('hdc_'+i)?el('hdc_'+i).checked:false,
-    bs:el('hbs_'+i)?el('hbs_'+i).checked:false,
   }));
   const badHoles=holesData.filter(h=>h.score!==''&&(h.par===''||h.par==null));
   if(badHoles.length>0){
@@ -920,8 +1123,8 @@ function subRound(){
   logActivity(gv('rf_d'),'golf');
   renderRounds();
 }
-function cancelR(){editIdx=null;renderRounds();}
-function editR(i){editIdx=i;renderRounds();setTimeout(()=>el('pg-rounds').scrollIntoView({behavior:'smooth'}),100);}
+function cancelR(){editIdx=null;roundMode='select';renderRounds();}
+function editR(i){editIdx=i;roundMode='manual';renderRounds();setTimeout(()=>el('pg-rounds').scrollIntoView({behavior:'smooth'}),100);}
 function delR(i){if(!confirm('Runde löschen?'))return;rounds.splice(i,1);ss('rounds',rounds);syncRounds();renderRounds();}
 
 // ── ANALYTICS ─────────────────────────────────────────────────────
@@ -1089,7 +1292,7 @@ function buildReport(weeks){
     if(s.p3!==null)t+=`, 3P:${s.p3}`;
     if(s.db!==null)t+=`, Dbl:${s.db}`;
     if(s.dc!==null)t+=`, DC:${s.dc}`;
-    if(s.bs!==null)t+=`, B9+:${s.bs}`;
+    if(s.bs!==null)t+=`, B7+:${s.bs}`;
     t+='\n';if(r.notes)t+=`  → ${r.notes}\n`;
   }
   t+='\nGEWOHNHEITEN (letzte 6 Wochen)\n';
@@ -1118,6 +1321,15 @@ function renderExport(){
         <button class="btn" onclick="showAll()">👁 Vorschau</button>
       </div><div id="all-prev"></div>
     </div>
+    <div class="card"><div class="ct">Anthropic API Key</div>
+      <p style="font-size:13px;color:var(--mu);margin-bottom:12px">Wird für Scorecard-Foto-Scan (Runden-Tab) verwendet. Nur lokal gespeichert.</p>
+      <div class="fr"><label>API Key</label>
+        <input type="text" id="anth_key_inp" value="${localStorage.getItem('anthropic_key')||''}" placeholder="sk-ant-..." autocomplete="off" style="font-family:monospace;font-size:12px"></div>
+      <div class="rbtns">
+        <button class="btn btnp" onclick="saveAnthKey()">💾 Speichern</button>
+      </div>
+      <div id="anth-status" style="font-size:12px;color:var(--mu);margin-top:8px"></div>
+    </div>
     <div class="card"><div class="ct">GitHub Einstellungen</div>
       <p style="font-size:13px;color:var(--mu);margin-bottom:12px">Für automatisches Aktivitäts-Logging (Weights, Golf) → activity_log.json im Repo.</p>
       <div class="fr"><label>GitHub Owner (Username)</label>
@@ -1132,6 +1344,12 @@ function renderExport(){
       </div>
       <div id="gh-status" style="font-size:12px;color:var(--mu);margin-top:8px"></div>
     </div>`);
+}
+
+function saveAnthKey(){
+  const k=el('anth_key_inp').value.trim();
+  localStorage.setItem('anthropic_key',k);
+  setHtml('anth-status',k?'✓ Gespeichert.':'Key gelöscht.');
 }
 
 function saveGhCfg(){

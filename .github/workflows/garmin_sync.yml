@@ -4,8 +4,10 @@ on:
   schedule:
     # Mon–Sat 07:00 Vienna (CEST = UTC+2) → 05:00 UTC
     - cron: "0 5 * * 1-6"
-    # Sun 08:30 Vienna (CEST = UTC+2) → 06:30 UTC
+    # Sun 08:30 Vienna (CEST = UTC+2) → 06:30 UTC  (morning readiness)
     - cron: "30 6 * * 0"
+    # Sun midnight Vienna (CEST = UTC+2) → 22:00 UTC Sun  (weekly coaching email)
+    - cron: "0 22 * * 0"
   workflow_dispatch:  # allow manual trigger from GitHub UI
 
 jobs:
@@ -28,9 +30,16 @@ jobs:
         env:
           GARMIN_TOKENS:      ${{ secrets.GARMIN_TOKENS }}
           ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+          SMTP_FROM:          ${{ secrets.SMTP_FROM }}
+          SMTP_PASSWORD:      ${{ secrets.SMTP_PASSWORD }}
+          COACHING_TO:        ${{ secrets.COACHING_TO }}
+          # Set to "true" only for the Sunday midnight run
+          WEEKLY_REVIEW:      ${{ (github.event.schedule == '0 22 * * 0') && 'true' || 'false' }}
         run: python garmin_sync.py
 
       - name: Commit updated garmin_status.js
+        # Skip commit on weekly review run — it doesn't update the JS file
+        if: env.WEEKLY_REVIEW != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
