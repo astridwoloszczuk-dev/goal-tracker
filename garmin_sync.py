@@ -458,7 +458,7 @@ her injury recovery (back to full training April 13 2026) and upcoming golf tour
 Keep responses exactly as requested in terms of length and format."""
 
 
-def build_daily_brief(metrics: dict, tracker: dict, today_str: str, week_start: str, is_sunday: bool) -> str:
+def build_daily_brief(metrics: dict, garmin_acts: list, tracker: dict, today_str: str, week_start: str) -> str:
     """Ask Claude for a short daily coaching note (3-4 sentences)."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -466,6 +466,7 @@ def build_daily_brief(metrics: dict, tracker: dict, today_str: str, week_start: 
 
     client = anthropic.Anthropic(api_key=api_key)
     tracker_text = format_tracker_for_prompt(tracker, today_str, week_start)
+    activities_text = format_activities_for_prompt(garmin_acts, [])
 
     readiness_line = ""
     if metrics:
@@ -476,6 +477,8 @@ def build_daily_brief(metrics: dict, tracker: dict, today_str: str, week_start: 
     prompt = f"""{GOALS_CONTEXT}
 
 {tracker_text}
+
+{activities_text}
 
 {readiness_line}
 
@@ -493,7 +496,7 @@ Be direct. Start with her name 'Astrid,'."""
     return msg.content[0].text.strip()
 
 
-def build_weekly_review(metrics: dict, tracker: dict, today_str: str, week_start: str) -> str:
+def build_weekly_review(metrics: dict, garmin_acts: list, tracker: dict, today_str: str, week_start: str) -> str:
     """Ask Claude for a full weekly coaching email (Sunday only)."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -501,10 +504,13 @@ def build_weekly_review(metrics: dict, tracker: dict, today_str: str, week_start
 
     client = anthropic.Anthropic(api_key=api_key)
     tracker_text = format_tracker_for_prompt(tracker, today_str, week_start)
+    activities_text = format_activities_for_prompt(garmin_acts, [])
 
     prompt = f"""{GOALS_CONTEXT}
 
 {tracker_text}
+
+{activities_text}
 
 Garmin today: sleep {metrics.get('sleep_score','?')}/100, HRV {metrics.get('hrv_last_night','?')}ms ({metrics.get('hrv_status','?')}), Body Battery {metrics.get('body_battery','?')}.
 
@@ -587,7 +593,7 @@ def main():
     if weekly_only:
         # Sunday evening run: send weekly email, don't overwrite garmin_status.js
         print("\nWeekly review run — building email...")
-        body = build_weekly_review(metrics, tracker, TODAY, wstart)
+        body = build_weekly_review(metrics, garmin_acts, tracker, TODAY, wstart)
         print(f"\n--- WEEKLY REVIEW ---\n{body}\n--- END ---\n")
         send_coaching_email(f"Weekly Coaching Review — w/e {TODAY}", body)
         print("\nDone.")
@@ -595,7 +601,7 @@ def main():
 
     # Normal morning run: generate brief and embed in garmin_status.js
     print("\nBuilding daily brief...")
-    brief = build_daily_brief(metrics, tracker, TODAY, wstart, False)
+    brief = build_daily_brief(metrics, garmin_acts, tracker, TODAY, wstart)
     print(f"\n--- DAILY BRIEF ---\n{brief}\n--- END ---\n")
 
     write_output(metrics, readiness, brief)

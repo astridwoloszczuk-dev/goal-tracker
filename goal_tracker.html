@@ -675,6 +675,7 @@ function tapCardioSlot(slotIdx){
   const barId='cardio_'+slotIdx;
   const cur=getWbar(barId,dkey);
   setWbar(barId,dkey,cur>=2?0:cur+1);
+  syncCardioGym(dkey);
   go(CUR);
 }
 
@@ -702,8 +703,8 @@ function tapFitSlot(slotIdx){
   const cur=getWbar(barId,dkey);
   const next=cur>=2?0:cur+1;
   setWbar(barId,dkey,next);
-  // Log weights when first checked (slots 0+1 are both 'Weights')
   if(next===1&&(slotIdx===0||slotIdx===1)) logActivity(dkey,'weights');
+  syncCardioGym(dkey);
   go(CUR);
 }
 
