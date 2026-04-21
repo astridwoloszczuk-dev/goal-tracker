@@ -15,35 +15,35 @@ window.GARMIN = {
   },
   "readiness": {
     "score": 62,
-    "summary": "You're in reasonable shape today — HRV is balanced within your baseline, sleep was solid, and Body Battery at 65 is workable. However, you've already completed an easy run and a weights session today (Tuesday), so the primary concern is same-day accumulation rather than overnight recovery. With a Tempo run on Sunday still within its 36-48h window and weights done this morning, additional high-intensity or neuromuscular work today would be stacking load unwisely — Mobility or Golf are the smart additions if needed.",
+    "summary": "Readiness is moderate today — HRV is balanced within baseline and sleep was solid, but a Zone 2 run (8.1km) was completed earlier this morning along with a weights session, meaning meaningful cumulative load has already been accumulated today. The body has handled the week well, but with a Tempo session 2 days ago and today's double already done, any further intensity would be poorly timed — recovery work or mobility is the smart call for the rest of the day.",
     "sessions": {
       "Zone 2": {
         "status": "caution",
-        "reason": "You already ran 8.1km easy this morning (avg HR 153, well within Zone 2 range). A second Zone 2 session today isn't harmful physiologically, but Body Battery at 65 and same-day accumulated load mean it's worth asking if it adds value — rest or mobility is likely more productive now."
+        "reason": "Already completed an 8.1km Zone 2 run today — a second Zone 2 session is unnecessary and would add fatigue without benefit. Alone it would be fine given balanced HRV (55ms) and good sleep, but the day's quota is met."
       },
       "Long Run": {
         "status": "poor",
-        "reason": "You ran 8.1km this morning, and the last long run (11km, April 15) was only 6 days ago — structural load is still accumulating week-on-week. Adding distance today would exceed sensible daily load. Schedule for Thursday or later."
+        "reason": "An 8.1km run and a weights session already done today. Long run structural load on top of this would be excessive. Next sensible window is Thursday at earliest, allowing 48h from today's run."
       },
       "Tempo": {
         "status": "poor",
-        "reason": "Sunday's Rolling 300s tempo (avg HR 152, max 176) was only 2 days ago — still within the 36-48h recovery window. Combined with this morning's run and today's weights session, lactate threshold work today would be poor recovery management."
+        "reason": "Tempo session completed Sunday (2 days ago, avg HR 152bpm over 6.1km) — still within the 36-48h recovery window. Today's Zone 2 run and weights compound this further. Not the day for another threshold effort."
       },
       "VO2 Max": {
         "status": "poor",
-        "reason": "VO2 Max requires 48-72h recovery and genuine freshness. Sunday's tempo was 2 days ago, you've already run and lifted today, and Body Battery at 65 doesn't signal the high-end readiness this session demands. Not today."
+        "reason": "Highest neuromuscular cost of any run session, requiring genuine freshness. Today already includes a run and weights. Sunday's Tempo is also only 2 days ago. All factors point against VO2 Max today."
       },
       "Weights": {
-        "status": "poor",
-        "reason": "Already completed a weights session today (manually logged, Tuesday). Repeating the same muscle groups within hours carries real injury and overreach risk — this slot is closed for today."
+        "status": "caution",
+        "reason": "Weights session already completed today — same muscle groups need 48h before being loaded again. No additional weights today. Note: Garmin doesn't track these, so this is based on manual log."
       },
       "Mobility": {
         "status": "good",
-        "reason": "Always appropriate and genuinely useful here — you have accumulated load from a morning run and weights session today. Mobility work will aid recovery, requires no meaningful recovery itself, and HRV/sleep support doing something low-stress this evening."
+        "reason": "Always appropriate regardless of load. HRV is balanced, stress is low (31/100), and a mobility session would complement today's run and weights by aiding recovery. Ideal choice for any remaining training time today."
       },
       "Golf": {
         "status": "good",
-        "reason": "Active recovery — walking, low HR, mentally positive. Given the load already accumulated today, golf this evening would be a net positive: it keeps you moving without adding meaningful physiological stress."
+        "reason": "Active recovery — walking and low-intensity movement. Played yesterday (Apr 20) which was a net positive. Another round today would be fine and beneficial for mental recovery, especially given the accumulated physical load."
       }
     }
   }
