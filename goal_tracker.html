@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Goal Tracker">
-<title>Goal Tracker</title>
+<meta name="apple-mobile-web-app-title" content="Goals">
+<meta name="theme-color" content="#15803d">
+<link rel="apple-touch-icon" href="icon-192.svg">
+<link rel="manifest" href="manifest.json">
+<title>Goals</title>
 <script src="garmin_status.js" onerror="window.GARMIN=null"></script>
 <script>
 function garminBadge(sessionName){
@@ -863,6 +866,8 @@ function onHoleGir(i){
 
 // ── ROUNDS STATE ────────────────────────────────────────────────
 let roundMode='select'; // 'select' | 'scan' | 'manual'
+let scanFiles=[null,null];    // [{base64,mimeType}, null] — index 0=front9, 1=back9
+let scanPreviews=[null,null]; // [dataURL, null]
 
 function roundStatsHtml(){
   const sc18=(v,n)=>v!==null&&n>0?v*18/n:null;
@@ -923,17 +928,27 @@ function renderRounds(){
       ${!apiKey?`<div style="font-size:11px;color:var(--mu);margin-top:10px">📷 Foto-Scan benötigt Anthropic API-Key (in Export-Einstellungen konfigurieren).</div>`:''}
     </div>`;
   } else if(roundMode==='scan'){
+    const hasF9=!!scanFiles[0],hasB9=!!scanFiles[1];
+    const slot=(idx,label)=>{
+      const has=!!scanFiles[idx];
+      return`<div>
+        <div style="font-size:11px;font-weight:600;text-align:center;margin-bottom:4px">${label}</div>
+        ${has?`<img src="${scanPreviews[idx]}" style="width:100%;height:100px;border-radius:6px;border:1px solid var(--b1);object-fit:cover;display:block;margin-bottom:4px">`
+             :`<div style="height:100px;border:1.5px dashed var(--b1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:4px;cursor:pointer" onclick="el('sf${idx}').click()">📷</div>`}
+        <input type="file" id="sf${idx}" accept="image/*" capture="environment" style="display:none" onchange="onScanFile(this,${idx})">
+        <button class="btn" style="width:100%;font-size:11px;padding:5px 0" onclick="el('sf${idx}').click()">${has?'Ändern':'Foto wählen'}</button>
+      </div>`;
+    };
     h+=`<div class="card">
-      <div class="ct">Scorecard-Foto</div>
-      <p style="font-size:13px;color:var(--mu);margin-bottom:10px">Foto der ausgefüllten Scorecard aufnehmen oder aus Galerie wählen.</p>
-      <div id="scan-preview" style="display:none;margin-bottom:10px">
-        <img id="scan-img" style="width:100%;border-radius:8px;border:1px solid var(--b1);max-height:260px;object-fit:contain">
+      <div class="ct">Scorecard-Fotos</div>
+      <p style="font-size:13px;color:var(--mu);margin-bottom:10px">Vorder- und/oder Rückseite abfotografieren — auch nur eine Seite reicht.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        ${slot(0,'Löcher 1–9')}${slot(1,'Löcher 10–18')}
       </div>
       <div id="scan-status" style="font-size:12px;min-height:18px;margin-bottom:8px"></div>
-      <input type="file" id="scan-file" accept="image/*" capture="environment" style="display:none" onchange="onScanFile(this)">
       <div class="rbtns">
-        <button class="btn btnp" onclick="el('scan-file').click()">📷 Foto wählen / aufnehmen</button>
-        <button class="btn" onclick="roundMode='select';renderRounds()">Abbrechen</button>
+        ${(hasF9||hasB9)?`<button class="btn btnp" onclick="runScan()">🔍 Analysieren</button>`:''}
+        <button class="btn" onclick="scanFiles=[null,null];scanPreviews=[null,null];roundMode='select';renderRounds()">Abbrechen</button>
       </div>
     </div>`;
   } else {
@@ -1005,50 +1020,48 @@ function startScan(){
     go('export');
     return;
   }
+  scanFiles=[null,null];scanPreviews=[null,null];
   roundMode='scan';
   renderRounds();
 }
 
-function onScanFile(input){
+function onScanFile(input,idx){
   const file=input.files[0];
   if(!file)return;
   const reader=new FileReader();
-  reader.onload=async e=>{
-    const preview=el('scan-preview'),img=el('scan-img');
-    if(preview&&img){preview.style.display='block';img.src=e.target.result;}
-    const status=el('scan-status');
-    if(status)status.innerHTML=`<span style="color:var(--mu)">⏳ Claude analysiert Scorecard…</span>`;
-    const apiKey=localStorage.getItem('anthropic_key')||'';
-    const base64=e.target.result.split(',')[1];
-    const mimeType=file.type||'image/jpeg';
-    try{
-      const data=await analyzeScorecard(base64,mimeType,apiKey);
-      if(status)status.innerHTML=`<span style="color:var(--gn)">✓ Daten extrahiert – bitte überprüfen und speichern.</span>`;
-      roundMode='manual';
-      renderRounds();
-      setTimeout(()=>fillRoundForm(data),100);
-    }catch(err){
-      if(status)status.innerHTML=`<span style="color:var(--rd)">✗ Fehler: ${err.message}</span>`;
-    }
+  reader.onload=e=>{
+    scanFiles[idx]={base64:e.target.result.split(',')[1],mimeType:file.type||'image/jpeg'};
+    scanPreviews[idx]=e.target.result;
+    renderRounds();
   };
   reader.readAsDataURL(file);
 }
 
-async function analyzeScorecard(base64,mimeType,apiKey){
-  const resp=await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{
-      'x-api-key':apiKey,
-      'anthropic-version':'2023-06-01',
-      'content-type':'application/json',
-      'anthropic-dangerous-direct-browser-access':'true',
-    },
-    body:JSON.stringify({
-      model:'claude-haiku-4-5-20251001',
-      max_tokens:2048,
-      messages:[{role:'user',content:[
-        {type:'image',source:{type:'base64',media_type:mimeType,data:base64}},
-        {type:'text',text:`This is a handwritten golf scorecard. Extract all data carefully.
+async function runScan(){
+  const apiKey=localStorage.getItem('anthropic_key')||'';
+  const status=el('scan-status');
+  if(status)status.innerHTML=`<span style="color:var(--mu)">⏳ Claude analysiert Scorecard…</span>`;
+  try{
+    const images=scanFiles.filter(Boolean);
+    const data=await analyzeScorecard(images,apiKey);
+    if(status)status.innerHTML=`<span style="color:var(--gn)">✓ Daten extrahiert – bitte überprüfen und speichern.</span>`;
+    scanFiles=[null,null];scanPreviews=[null,null];
+    roundMode='manual';
+    renderRounds();
+    setTimeout(()=>fillRoundForm(data),100);
+  }catch(err){
+    if(status)status.innerHTML=`<span style="color:var(--rd)">✗ Fehler: ${err.message}</span>`;
+  }
+}
+
+async function analyzeScorecard(images,apiKey){
+  // images = array of {base64, mimeType} — one or two (front9 / back9)
+  const content=[];
+  images.forEach((img,i)=>{
+    if(images.length>1)content.push({type:'text',text:i===0?'Front 9 (holes 1–9):':'Back 9 (holes 10–18):'});
+    content.push({type:'image',source:{type:'base64',media_type:img.mimeType,data:img.base64}});
+  });
+  content.push({type:'text',text:`This is a handwritten golf scorecard. Extract all data carefully.
 
 For each hole return:
 - hole: number 1-18
@@ -1067,8 +1080,20 @@ Also extract:
 - notes: any written notes or null
 
 Return ONLY valid JSON, no markdown:
-{"date":null,"course":null,"comp":false,"notes":null,"holes":[{"hole":1,"par":4,"score":5,"fw":true,"gir":false,"ud":true,"p3":false,"dc":false}]}`}
-      ]}]
+{"date":null,"course":null,"comp":false,"notes":null,"holes":[{"hole":1,"par":4,"score":5,"fw":true,"gir":false,"ud":true,"p3":false,"dc":false}]}`});
+
+  const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'x-api-key':apiKey,
+      'anthropic-version':'2023-06-01',
+      'content-type':'application/json',
+      'anthropic-dangerous-direct-browser-access':'true',
+    },
+    body:JSON.stringify({
+      model:'claude-haiku-4-5-20251001',
+      max_tokens:2048,
+      messages:[{role:'user',content}]
     })
   });
   if(!resp.ok){
