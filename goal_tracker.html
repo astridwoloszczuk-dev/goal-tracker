@@ -807,7 +807,7 @@ function deriveRoundStats(hd){
   const db=played.filter(h=>Number(h.score)>=Number(h.par)+2).length;
   const b5=played.filter(h=>Number(h.par)===5&&Number(h.score)>=6).length;
   const dc=played.filter(h=>h.dc).length;
-  const bs=played.filter(h=>Number(h.score)>=7).length;
+  const bs=played.filter(h=>h.b7).length;
   return{n,delta,gir,fw,ud,p3,db,b5,dc,bs};
 }
 
@@ -847,6 +847,7 @@ function holeBoxHtml(i){
       <div id="hud_wrap_${i}" style="display:inline"><label class="hole-toggle"><input type="checkbox" id="hud_${i}"> U&amp;D</label></div>
       <label class="hole-toggle"><input type="checkbox" id="h3p_${i}"> 3P</label>
       <label class="hole-toggle"><input type="checkbox" id="hdc_${i}"> DC</label>
+      <label class="hole-toggle"><input type="checkbox" id="hb7_${i}"> B7</label>
     </div>
   </div>`;
 }
@@ -972,6 +973,7 @@ function renderRounds(){
         if(el('hud_'+i))el('hud_'+i).checked=!!hdata.ud;
         if(el('h3p_'+i))el('h3p_'+i).checked=!!hdata.p3;
         if(el('hdc_'+i))el('hdc_'+i).checked=!!hdata.dc;
+        if(el('hb7_'+i))el('hb7_'+i).checked=!!hdata.b7;
         onHolePar(i);onHoleGir(i);
       });
     },80);
@@ -1089,11 +1091,12 @@ For each hole return:
 - hole: number 1-18
 - par: 3, 4 or 5 (null if unreadable)
 - score: strokes played (integer, null if blank)
-- fw: fairway hit ticked? (true/false — always false/null for par 3, no fairway)
-- gir: green in regulation ticked? (true/false)
-- ud: up & down ticked? (true/false — only relevant when no GIR)
-- p3: 3-putt ticked? (true/false)
-- dc: DC/driver choke ticked? (true/false)
+- fw: fairway hit marked? (tick or cross — always false/null for par 3, no fairway)
+- gir: green in regulation marked? (tick or cross — true/false)
+- ud: up & down marked? (tick or cross — only relevant when no GIR — true/false)
+- p3: 3-putt marked? (tick OR cross — crosses count as true — true/false)
+- dc: DC/driver choke marked? (tick OR cross — crosses count as true — true/false)
+- b7: B7 marked? (bogey from within 7-iron distance without saving U&D — tick OR cross — true/false)
 
 Also extract:
 - date: "YYYY-MM-DD" format or null
@@ -1102,7 +1105,7 @@ Also extract:
 - notes: any written notes or null
 
 Return ONLY valid JSON, no markdown:
-{"date":null,"course":null,"comp":false,"notes":null,"holes":[{"hole":1,"par":4,"score":5,"fw":true,"gir":false,"ud":true,"p3":false,"dc":false}]}`});
+{"date":null,"course":null,"comp":false,"notes":null,"holes":[{"hole":1,"par":4,"score":5,"fw":true,"gir":false,"ud":true,"p3":false,"dc":false,"b7":false}]}`});
 
   const resp=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
@@ -1144,6 +1147,7 @@ function fillRoundForm(data){
     if(el('hud_'+idx))el('hud_'+idx).checked=!!h.ud;
     if(el('h3p_'+idx))el('h3p_'+idx).checked=!!h.p3;
     if(el('hdc_'+idx))el('hdc_'+idx).checked=!!h.dc;
+    if(el('hb7_'+idx))el('hb7_'+idx).checked=!!h.b7;
     onHolePar(idx);onHoleGir(idx);
   });
 }
@@ -1158,6 +1162,7 @@ function subRound(){
     ud:el('hud_'+i)?el('hud_'+i).checked:false,
     p3:el('h3p_'+i)?el('h3p_'+i).checked:false,
     dc:el('hdc_'+i)?el('hdc_'+i).checked:false,
+    b7:el('hb7_'+i)?el('hb7_'+i).checked:false,
   }));
   const badHoles=holesData.filter(h=>h.score!==''&&(h.par===''||h.par==null));
   if(badHoles.length>0){
