@@ -161,7 +161,7 @@ def load_manual_activities(days=7) -> list:
 
 SYSTEM_PROMPT = """You are a sports science assistant helping an athlete plan their training.
 You understand training load, recovery, and periodisation. You give honest, specific advice
-rather than generic caution. Zone 2 running at correct intensity (65-75% max HR) is restorative
+rather than generic caution. Zone 2 running at correct intensity (65-75% max HR = ~126-145 bpm for this athlete, max HR 193 bpm) is restorative
 and can be done frequently — do NOT treat it like a hard session. VO2 Max intervals carry the
 highest neuromuscular cost (48-72h recovery needed). The athlete doesn't always wear their
 Garmin watch during weights sessions or golf, so these are provided separately. Golf (any format)
@@ -227,7 +227,7 @@ GARMIN HEALTH METRICS (from overnight):
 Based on all the above, provide a readiness analysis.
 
 Session types to assess:
-- Zone 2 (easy aerobic run, 65-75% max HR — low fatigue, restorative)
+- Zone 2 (easy aerobic run, 65-75% max HR = ~126-145 bpm — low fatigue, restorative)
 - Long Run (structural load, distance-based fatigue — needs 48-72h)
 - Tempo (lactate threshold, moderate-high cost — needs 36-48h)
 - VO2 Max (high-intensity intervals, highest cost — needs 48-72h, prioritise freshness)
@@ -446,6 +446,7 @@ ATHLETE GOALS & CONTEXT:
   Weekly golf targets: 27+ holes, ≥1 drill per category (Range/Score, Range/Drive, SGA, Putt+Chip), ≥1 game per category, mirror putting 5×/week.
 - RUNNING: Beat 5k PB 24:30 & VO2 Max 45→48 by Nov 2026. Back to full training from April 13 2026 after injury.
   Target: 3 runs/week (Zone 2 ~7.5km, 1 long run, 1 tempo/interval), total ~20-25km.
+  Max HR: 193 bpm. Zone 2 = ~126-145 bpm. Tempo = ~155-170 bpm. VO2 Max intervals = 175+ bpm.
 - STRENGTH: Muscle mass. 2× weights/week with PT Martin + protein ≥90g/day.
 - HABITS: Hydration 6 glasses/day, alcohol ≤3×/week, stretching/foam rolling 5×/week, mobility 1×/week.
 
