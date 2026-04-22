@@ -133,14 +133,18 @@ textarea{resize:vertical;min-height:60px}
 .hole-box{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;margin-bottom:8px}
 .hole-hdr{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--ye);font-weight:600;margin-bottom:8px}
 .hole-r1{display:flex;gap:10px;align-items:flex-end;margin-bottom:8px}
-.hole-r2{display:flex;gap:5px;flex-wrap:wrap}
+.hole-r2{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px}
+.hole-r3{display:flex;gap:5px;flex-wrap:wrap}
 .hole-nf{display:flex;flex-direction:column;gap:3px}
 .hole-lbl{font-size:10px;color:var(--ye);text-transform:uppercase;letter-spacing:.5px}
 .hole-num{width:56px;padding:6px 4px;font-size:20px;font-weight:700;text-align:center;border:1px solid var(--b2);border-radius:7px;background:var(--bg);color:var(--tx);-webkit-appearance:none;-moz-appearance:textfield}
 .hole-num::-webkit-inner-spin-button,.hole-num::-webkit-outer-spin-button{-webkit-appearance:none}
-.hole-fw{display:flex;align-items:center;gap:6px;padding-bottom:2px}
-.hole-toggle{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:5px 8px;border:1px solid var(--b2);border-radius:6px;cursor:pointer;background:var(--bg);-webkit-tap-highlight-color:transparent;user-select:none}
+.hole-toggle{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:5px 8px;border:1px solid var(--b2);border-radius:6px;cursor:pointer;background:var(--bg);color:var(--tx);-webkit-tap-highlight-color:transparent;user-select:none}
 .hole-toggle input{width:17px;height:17px;accent-color:var(--ac)}
+.hole-toggle.good{border-color:#16a34a;color:#15803d}
+.hole-toggle.good input{accent-color:#16a34a}
+.hole-toggle.bad{border-color:#dc2626;color:#b91c1c}
+.hole-toggle.bad input{accent-color:#dc2626}
 </style>
 </head>
 <body>
@@ -835,28 +839,23 @@ function holeBoxHtml(i){
   return `<div class="hole-box">
     <div class="hole-hdr">Hole ${i+1}</div>
     <div class="hole-r1">
-      <div class="hole-nf"><span class="hole-lbl">Par</span><input type="number" id="hp_${i}" min="3" max="5" placeholder="4" class="hole-num" oninput="onHolePar(${i})"></div>
+      <div class="hole-nf"><span class="hole-lbl">Par</span><input type="number" id="hp_${i}" min="3" max="5" placeholder="4" class="hole-num"></div>
       <div class="hole-nf"><span class="hole-lbl">Score</span><input type="number" id="hs_${i}" min="1" max="15" placeholder="—" class="hole-num"></div>
-      <div id="hfw_wrap_${i}" class="hole-fw" style="display:none">
-        <input type="checkbox" id="hfw_${i}" style="width:20px;height:20px;accent-color:var(--ac)">
-        <label for="hfw_${i}" class="hole-lbl" style="font-size:12px;cursor:pointer">FW</label>
-      </div>
     </div>
     <div class="hole-r2">
-      <label class="hole-toggle"><input type="checkbox" id="hgir_${i}" onchange="onHoleGir(${i})"> GIR</label>
-      <div id="hud_wrap_${i}" style="display:inline"><label class="hole-toggle"><input type="checkbox" id="hud_${i}"> U&amp;D</label></div>
-      <label class="hole-toggle"><input type="checkbox" id="h3p_${i}"> 3P</label>
-      <label class="hole-toggle"><input type="checkbox" id="hdc_${i}"> DC</label>
-      <label class="hole-toggle"><input type="checkbox" id="hb7_${i}"> B7</label>
+      <label class="hole-toggle good"><input type="checkbox" id="hfw_${i}"> FW</label>
+      <label class="hole-toggle good"><input type="checkbox" id="hgir_${i}" onchange="onHoleGir(${i})"> GIR</label>
+      <div id="hud_wrap_${i}" style="display:inline"><label class="hole-toggle good"><input type="checkbox" id="hud_${i}"> U&amp;D</label></div>
+    </div>
+    <div class="hole-r3">
+      <label class="hole-toggle bad"><input type="checkbox" id="h3p_${i}"> 3P</label>
+      <label class="hole-toggle bad"><input type="checkbox" id="hdc_${i}"> DC</label>
+      <label class="hole-toggle bad"><input type="checkbox" id="hb7_${i}"> B7</label>
     </div>
   </div>`;
 }
 
-function onHolePar(i){
-  const v=el('hp_'+i)?el('hp_'+i).value:'';
-  const fw=el('hfw_wrap_'+i);
-  if(fw)fw.style.display=(v&&Number(v)!==3)?'flex':'none';
-}
+function onHolePar(i){}
 
 function onHoleGir(i){
   const checked=el('hgir_'+i)?el('hgir_'+i).checked:false;
