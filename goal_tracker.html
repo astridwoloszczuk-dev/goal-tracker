@@ -1025,14 +1025,30 @@ function startScan(){
   renderRounds();
 }
 
+function resizeForApi(dataUrl,cb){
+  const img=new Image();
+  img.onload=()=>{
+    const MAX=1600;
+    let w=img.width,h=img.height;
+    if(w>MAX||h>MAX){const s=MAX/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+    const c=document.createElement('canvas');
+    c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    cb(c.toDataURL('image/jpeg',0.88));
+  };
+  img.src=dataUrl;
+}
+
 function onScanFile(input,idx){
   const file=input.files[0];
   if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    scanFiles[idx]={base64:e.target.result.split(',')[1],mimeType:file.type||'image/jpeg'};
-    scanPreviews[idx]=e.target.result;
-    renderRounds();
+    resizeForApi(e.target.result,resized=>{
+      scanFiles[idx]={base64:resized.split(',')[1],mimeType:'image/jpeg'};
+      scanPreviews[idx]=resized;
+      renderRounds();
+    });
   };
   reader.readAsDataURL(file);
 }
