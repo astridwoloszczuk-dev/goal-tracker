@@ -1,14 +1,7 @@
 name: Garmin Sync
 
 on:
-  schedule:
-    # Mon–Sat 07:00 Vienna (CEST = UTC+2) → 05:00 UTC
-    - cron: "0 5 * * 1-6"
-    # Sun 08:30 Vienna (CEST = UTC+2) → 06:30 UTC  (morning readiness)
-    - cron: "30 6 * * 0"
-    # Sun midnight Vienna (CEST = UTC+2) → 22:00 UTC Sun  (weekly coaching email)
-    - cron: "0 22 * * 0"
-  workflow_dispatch:  # allow manual trigger from GitHub UI
+  workflow_dispatch:  # triggered by VPS cron via API, or manually from GitHub UI
 
 jobs:
   sync:
