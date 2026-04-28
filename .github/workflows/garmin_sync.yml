@@ -1,7 +1,10 @@
 name: Garmin Sync
 
 on:
-  workflow_dispatch:  # triggered by VPS cron via API, or manually from GitHub UI
+  schedule:
+    - cron: '45 5 * * 1-6'   # 07:45 Vienna (CEST/UTC+2); 06:45 in winter (CET)
+    - cron: '0 22 * * 0'     # Sun 00:00 Vienna — weekly review run
+  workflow_dispatch:  # manual trigger from GitHub UI or VPS
 
 jobs:
   sync:
@@ -17,7 +20,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install garth garminconnect anthropic
+        run: pip install garth==0.8.0 garminconnect==0.3.2 anthropic
 
       - name: Run garmin_sync.py
         env:
