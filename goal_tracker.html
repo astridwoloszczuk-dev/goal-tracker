@@ -918,7 +918,7 @@ function roundStatsHtml(){
 function roundFormHtml(){
   return`<div class="card"><div class="ct">${editIdx!==null?'Bearbeiten':'Neue Runde – Überprüfen &amp; Speichern'}</div>
     <div class="g2" style="margin-bottom:10px">
-      <div class="fr"><label>Datum</label><input type="date" id="rf_d"></div>
+      <div class="fr"><label>Datum</label><input type="text" id="rf_d" placeholder="YYYY-MM-DD" inputmode="numeric" maxlength="10"></div>
       <div class="fr"><label>Platz</label><input type="text" id="rf_c" placeholder="Fontana"></div>
     </div>
     <div class="fr" style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -1183,6 +1183,7 @@ function fillRoundForm(data){
 
 function subRound(){
   if(!gv('rf_d'))return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(gv('rf_d'))){alert('Datum im Format YYYY-MM-DD eingeben, z.B. 2026-04-27');return;}
   const holesData=Array.from({length:18},(_,i)=>({
     par:el('hp_'+i)?el('hp_'+i).value:'',
     score:el('hs_'+i)?el('hs_'+i).value:'',
