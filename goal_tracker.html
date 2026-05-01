@@ -364,28 +364,35 @@ function alcBarHtml(days){
   return h;
 }
 
-// Hydration bar (daily, resets each day)
-function hydrationHtml(dkey){
-  const n=sg('wat_'+dkey)||0;
-  const done=n>=GLASSES;
-  // count days met this week
-  const days=weekDays();
+// Hydration: one tappable counter box per day, coloured by count
+function glassColor(n){
+  if(n<=0) return {bg:'rgba(248,113,113,0.18)',border:'#f87171',text:'#f87171'};
+  if(n===1) return {bg:'rgba(249,115,22,0.2)',border:'#f97316',text:'#f97316'};
+  if(n===2) return {bg:'rgba(245,158,11,0.2)',border:'#f59e0b',text:'#f59e0b'};
+  if(n===3) return {bg:'rgba(251,191,36,0.22)',border:'#fbbf24',text:'#fbbf24'};
+  if(n===4) return {bg:'rgba(250,204,21,0.22)',border:'#facc15',text:'#facc15'};
+  if(n===5) return {bg:'rgba(134,239,172,0.28)',border:'#86efac',text:'#86efac'};
+  return {bg:'rgba(74,222,128,0.35)',border:'#4ade80',text:'#4ade80'};
+}
+function hydrationHtml(days){
   const elapsed=daysElapsed();
   let met=0;
   for(const day of days){const gn=sg('wat_'+day.dkey)||0;if(gn>=GLASSES)met++;}
   let h=`<div class="wbar-row">`;
-  h+=`<div class="wbar-label"><span>💧 Hydration${done?' ✓':''}</span><span style="font-size:10px;color:var(--mu)">${met}/${elapsed} Tage erreicht</span></div>`;
-  h+=`<div style="display:flex;gap:5px;align-items:center">`;
-  for(let i=0;i<GLASSES;i++){
-    const filled=i<n;
-    h+=`<div onclick="tapGlass('${dkey}')" style="flex:1;height:28px;border-radius:6px;border:1px solid ${filled?'#60a5fa':'var(--b2)'};background:${filled?'rgba(96,165,250,0.28)':'var(--s2)'};cursor:pointer;transition:all .15s"></div>`;
+  h+=`<div class="wbar-label"><span>💧 Hydration</span><span style="font-size:10px;color:var(--mu)">${met}/${elapsed} Tage ≥${GLASSES} Gläser</span></div>`;
+  h+=`<div class="wbar-slots">`;
+  for(const day of days){
+    const n=sg('wat_'+day.dkey)||0;
+    const c=glassColor(n);
+    h+=`<div class="wslot ${day.isToday?'today-slot':''}" onclick="tapGlass('${day.dkey}')" style="background:${c.bg};border-color:${c.border}">
+      <span class="wday">${DAYS[day.dow]}</span>
+      <span class="wval" style="color:${c.text};font-weight:600;font-size:11px">${n}</span>
+    </div>`;
   }
-  if(n>0) h+=`<button onclick="rmGlass('${dkey}')" style="border:none;background:none;color:var(--mu);font-size:20px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0">−</button>`;
   h+=`</div></div>`;
   return h;
 }
-function tapGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,Math.min(GLASSES,n+1));syncDayHabits(dkey);go(CUR);}
-function rmGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,Math.max(0,n-1));syncDayHabits(dkey);go(CUR);}
+function tapGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,n>=10?0:n+1);syncDayHabits(dkey);go(CUR);}
 
 // ── SLOT COUNTS (golf) ────────────────────────────────────────────
 function getSlotCounts(){
@@ -644,7 +651,7 @@ function renderToday(){
   h+=wbarHtml('mirror',days,'⛳ 5 min Spiegel-Putting','Tippen = abhaken',2,null);
   h+=wbarHtml('protein',days,'🥩 Protein-Ziel','',2,null);
   h+=wbarHtml('stretch',days,'🧘 Stretching + Foam Rolling','',2,null);
-  h+=hydrationHtml(tdkey);
+  h+=hydrationHtml(days);
   h+=alcBarHtml(days);
   h+='</div>';
 
@@ -782,7 +789,7 @@ function renderWeek(){
   h+=wbarHtml('mirror',days,'⛳ 5 min Spiegel-Putting','',2,null);
   h+=wbarHtml('protein',days,'🥩 Protein-Ziel','',2,null);
   h+=wbarHtml('stretch',days,'🧘 Stretching + Foam Rolling','',2,null);
-  h+=hydrationHtml(activeDay);
+  h+=hydrationHtml(days);
   h+=alcBarHtml(days);
   h+='</div>';
 
