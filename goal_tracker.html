@@ -303,6 +303,29 @@ function go(p){
 function getWbar(barId,dkey){return sg('wbar_'+barId+'_'+dkey)||0;}
 function setWbar(barId,dkey,val){ss('wbar_'+barId+'_'+dkey,val);}
 
+// Long-press-to-undo: touchstart starts 500ms timer; click is suppressed if timer fired
+let _lp={t:null,f:false};
+function lpS(fn){_lp.f=false;clearTimeout(_lp.t);_lp.t=setTimeout(()=>{_lp.f=true;try{navigator.vibrate(40);}catch(e){}fn();},500);}
+function lpE(){clearTimeout(_lp.t);}
+function lpC(fn){if(!_lp.f)fn();}
+
+function undoWbar(barId,dkey){
+  const cur=getWbar(barId,dkey);if(cur<=0)return;
+  setWbar(barId,dkey,cur-1);
+  if(barId.startsWith('cardio_')||barId.startsWith('fit_'))syncCardioGym(dkey);
+  else syncDayHabits(dkey);
+  go(CUR);
+}
+function undoCardio(slotIdx){
+  const barId='cardio_'+slotIdx;
+  for(const day of [...weekDays()].reverse()){const cur=getWbar(barId,day.dkey);if(cur>0){setWbar(barId,day.dkey,cur-1);syncCardioGym(day.dkey);go(CUR);return;}}
+}
+function undoFit(slotIdx){
+  const barId='fit_'+slotIdx;
+  for(const day of [...weekDays()].reverse()){const cur=getWbar(barId,day.dkey);if(cur>0){setWbar(barId,day.dkey,cur-1);syncCardioGym(day.dkey);go(CUR);return;}}
+}
+function undoGlass(dkey){const n=sg('wat_'+dkey)||0;if(n<=0)return;ss('wat_'+dkey,n-1);syncDayHabits(dkey);go(CUR);}
+
 function tapWbar(barId,dkey,maxVal){
   maxVal=maxVal||2;
   const cur=getWbar(barId,dkey);
@@ -326,7 +349,7 @@ function wbarHtml(barId,days,title,note,maxVal,colorFn,showVal){
     const val=getWbar(barId,day.dkey);
     const cls=colorFn?colorFn(val,day):val>=2?'extra':val>=1?'done':'';
     const dispVal=showVal&&val>0?val:'';
-    h+=`<div class="wslot ${cls} ${day.isToday?'today-slot':''}" onclick="tapWbar('${barId}','${day.dkey}',${maxVal})">
+    h+=`<div class="wslot ${cls} ${day.isToday?'today-slot':''}" onclick="lpC(()=>tapWbar('${barId}','${day.dkey}',${maxVal}))" ontouchstart="lpS(()=>undoWbar('${barId}','${day.dkey}'))" ontouchend="lpE()" ontouchmove="lpE()">
       <span class="wday">${DAYS[day.dow]}</span>
       <span class="wval">${val>=2?'+':val>=1?'✓':''}</span>
     </div>`;
@@ -355,7 +378,7 @@ function alcBarHtml(days){
       else if(cnt===4)cls='alc2';
       else cls='alc3';
     }
-    h+=`<div class="wslot ${cls} ${day.isToday?'today-slot':''}" onclick="tapWbar('alc','${day.dkey}',1)">
+    h+=`<div class="wslot ${cls} ${day.isToday?'today-slot':''}" onclick="lpC(()=>tapWbar('alc','${day.dkey}',1))" ontouchstart="lpS(()=>undoWbar('alc','${day.dkey}'))" ontouchend="lpE()" ontouchmove="lpE()">
       <span class="wday">${DAYS[day.dow]}</span>
       <span class="wval">${val>=1?'✓':''}</span>
     </div>`;
@@ -384,7 +407,7 @@ function hydrationHtml(days){
   for(const day of days){
     const n=sg('wat_'+day.dkey)||0;
     const c=glassColor(n);
-    h+=`<div class="wslot ${day.isToday?'today-slot':''}" onclick="tapGlass('${day.dkey}')" style="background:${c.bg};border-color:${c.border}">
+    h+=`<div class="wslot ${day.isToday?'today-slot':''}" onclick="lpC(()=>tapGlass('${day.dkey}'))" ontouchstart="lpS(()=>undoGlass('${day.dkey}'))" ontouchend="lpE()" ontouchmove="lpE()" style="background:${c.bg};border-color:${c.border}">
       <span class="wday">${DAYS[day.dow]}</span>
       <span class="wval" style="color:${c.text};font-weight:600;font-size:11px">${n}</span>
     </div>`;
@@ -675,7 +698,7 @@ function cardioBarHtml(days){
     // For cardio we track total per slot across the week
     const totalDone=days.reduce((s,d)=>s+(getWbar(barId,d.dkey)||0),0);
     const cls=totalDone>=2?'extra':totalDone>=1?'done':'';
-    h+=`<div class="wslot ${cls}" onclick="tapCardioSlot(${i})" style="height:38px;flex-direction:column;gap:2px">
+    h+=`<div class="wslot ${cls}" onclick="lpC(()=>tapCardioSlot(${i}))" ontouchstart="lpS(()=>undoCardio(${i}))" ontouchend="lpE()" ontouchmove="lpE()" style="height:38px;flex-direction:column;gap:2px">
       <span class="wday" style="font-size:7px;text-align:center;line-height:1.1">${CARDIO_SLOTS[i]}</span>${garminBadge(CARDIO_SLOTS[i])}
       <span class="wval">${totalDone>=2?'+':totalDone>=1?'✓':''}</span>
     </div>`;
@@ -702,7 +725,7 @@ function fitnessBarHtml(days){
     const barId='fit_'+i;
     const totalDone=days.reduce((s,d)=>s+(getWbar(barId,d.dkey)||0),0);
     const cls=totalDone>=2?'extra':totalDone>=1?'done':'';
-    h+=`<div class="wslot ${cls}" onclick="tapFitSlot(${i})" style="height:38px">
+    h+=`<div class="wslot ${cls}" onclick="lpC(()=>tapFitSlot(${i}))" ontouchstart="lpS(()=>undoFit(${i}))" ontouchend="lpE()" ontouchmove="lpE()" style="height:38px">
       <span class="wday" style="font-size:7px;text-align:center;line-height:1.1">${FITNESS_SLOTS[i]}</span>${garminBadge(FITNESS_SLOTS[i])}
       <span class="wval">${totalDone>=2?'+':totalDone>=1?'✓':''}</span>
     </div>`;
