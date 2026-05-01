@@ -1,9 +1,5 @@
 [
   {
-    "date": "2026-04-27",
-    "activity": "golf"
-  },
-  {
     "date": "2026-04-20",
     "activity": "golf"
   },
@@ -32,8 +28,16 @@
     "activity": "golf"
   },
   {
+    "date": "2026-04-27",
+    "activity": "golf"
+  },
+  {
     "date": "2026-04-28",
     "activity": "weights"
+  },
+  {
+    "date": "2026-04-30",
+    "activity": "golf"
   },
   {
     "date": "2026-05-01",
