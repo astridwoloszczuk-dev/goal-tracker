@@ -10,28 +10,6 @@
 <link rel="apple-touch-icon" href="icon-192.svg">
 <link rel="manifest" href="manifest.json">
 <title>Goals</title>
-<script src="garmin_status.js" onerror="window.GARMIN=null"></script>
-<script>
-function garminBadge(sessionName){
-  if(!window.GARMIN) return '';
-  const todayKey=new Date().toISOString().slice(0,10);
-  if(window.GARMIN.date!==todayKey) return '';
-  // Support new format (readiness.sessions) with fallback to old format
-  let st, reason='';
-  if(window.GARMIN.readiness&&window.GARMIN.readiness.sessions&&window.GARMIN.readiness.sessions[sessionName]){
-    st=window.GARMIN.readiness.sessions[sessionName].status;
-    reason=window.GARMIN.readiness.sessions[sessionName].reason||'';
-  } else if(window.GARMIN.metrics&&window.GARMIN.metrics.session_status){
-    st=window.GARMIN.metrics.session_status[sessionName];
-  } else return '';
-  const s='position:absolute;top:1px;right:2px;font-size:8px;line-height:1;pointer-events:none';
-  const tip=reason?` title="${reason.replace(/"/g,'&quot;')}"` :'';
-  if(st==='good')    return `<span style="${s}"${tip}>⭐</span>`;
-  if(st==='caution') return `<span style="${s}"${tip}>❓</span>`;
-  if(st==='poor')    return `<span style="${s};color:#f87171"${tip}>✗</span>`;
-  return '';
-}
-</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -699,7 +677,7 @@ function cardioBarHtml(days){
     const totalDone=days.reduce((s,d)=>s+(getWbar(barId,d.dkey)||0),0);
     const cls=totalDone>=2?'extra':totalDone>=1?'done':'';
     h+=`<div class="wslot ${cls}" onclick="lpC(()=>tapCardioSlot(${i}))" ontouchstart="lpS(()=>undoCardio(${i}))" ontouchend="lpE()" ontouchmove="lpE()" style="height:38px;flex-direction:column;gap:2px">
-      <span class="wday" style="font-size:7px;text-align:center;line-height:1.1">${CARDIO_SLOTS[i]}</span>${garminBadge(CARDIO_SLOTS[i])}
+      <span class="wday" style="font-size:7px;text-align:center;line-height:1.1">${CARDIO_SLOTS[i]}</span>
       <span class="wval">${totalDone>=2?'+':totalDone>=1?'✓':''}</span>
     </div>`;
   }
@@ -726,7 +704,7 @@ function fitnessBarHtml(days){
     const totalDone=days.reduce((s,d)=>s+(getWbar(barId,d.dkey)||0),0);
     const cls=totalDone>=2?'extra':totalDone>=1?'done':'';
     h+=`<div class="wslot ${cls}" onclick="lpC(()=>tapFitSlot(${i}))" ontouchstart="lpS(()=>undoFit(${i}))" ontouchend="lpE()" ontouchmove="lpE()" style="height:38px">
-      <span class="wday" style="font-size:7px;text-align:center;line-height:1.1">${FITNESS_SLOTS[i]}</span>${garminBadge(FITNESS_SLOTS[i])}
+      <span class="wday" style="font-size:7px;text-align:center;line-height:1.1">${FITNESS_SLOTS[i]}</span>
       <span class="wval">${totalDone>=2?'+':totalDone>=1?'✓':''}</span>
     </div>`;
   }
