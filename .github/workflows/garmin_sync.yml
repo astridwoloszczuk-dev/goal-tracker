@@ -1,10 +1,7 @@
 name: Garmin Sync
 
 on:
-  schedule:
-    - cron: '45 5 * * 1-6'   # 07:45 Vienna (CEST/UTC+2); 06:45 in winter (CET)
-    - cron: '0 22 * * 0'     # Sun 00:00 Vienna — weekly review run
-  workflow_dispatch:  # manual trigger from GitHub UI or VPS
+  workflow_dispatch:  # manual trigger only — Garmin API too unstable for scheduled use
 
 jobs:
   sync:
