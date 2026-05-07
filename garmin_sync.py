@@ -52,9 +52,7 @@ def load_garmin_client() -> Garmin:
         # Local path: use ~/.garth
         garth_dir = os.path.expanduser("~/.garth")
         if not os.path.isdir(garth_dir):
-            print("ERROR: No GARMIN_TOKENS env var and no ~/.garth directory.")
-            print("Run garmin_token_setup.py first.")
-            exit(1)
+            raise RuntimeError("No GARMIN_TOKENS env var and no ~/.garth directory. Run garmin_token_setup.py first.")
         tmpdir = garth_dir
         print("Authenticated via ~/.garth")
 
@@ -656,10 +654,19 @@ def week_start_for(today_str: str) -> str:
 def main():
     print(f"\nGarmin Sync — {TODAY}\n")
 
-    garmin_client = load_garmin_client()
+    # Garmin can fail (expired tokens, API downtime) — don't let it block the email
+    metrics     = {}
+    garmin_acts = []
+    garmin_ok   = False
+    try:
+        garmin_client = load_garmin_client()
+        metrics       = fetch_health_metrics(garmin_client)
+        garmin_acts   = fetch_recent_activities(garmin_client, days=7)
+        garmin_ok     = True
+    except Exception as e:
+        print(f"WARNING: Garmin fetch failed — {e}")
+        print("Continuing without Garmin data — email and drills will still send.")
 
-    metrics      = fetch_health_metrics(garmin_client)
-    garmin_acts  = fetch_recent_activities(garmin_client, days=7)
     manual_acts  = load_manual_activities(days=7)
 
     print(f"\nManual activities (last 7 days): {len(manual_acts)}")
@@ -691,7 +698,10 @@ def main():
     brief = build_daily_brief(metrics, garmin_acts, manual_acts, tracker, TODAY, wstart)
     print(f"\n--- DAILY BRIEF ---\n{brief}\n--- END ---\n")
 
-    write_output(metrics, readiness, brief)
+    if garmin_ok:
+        write_output(metrics, readiness, brief)
+    else:
+        print("Skipping garmin_status.js update — no Garmin data to write.")
 
     # Send coaching email on Mon/Thu scheduled runs
     if os.environ.get("SEND_COACHING_EMAIL", "").lower() == "true":
