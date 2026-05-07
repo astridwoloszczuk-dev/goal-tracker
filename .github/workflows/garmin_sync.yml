@@ -1,7 +1,15 @@
 name: Garmin Sync
 
 on:
-  workflow_dispatch:  # manual trigger only — Garmin API too unstable for scheduled use
+  schedule:
+    - cron: '0 5 * * 1'   # Monday    07:00 CEST (UTC+2 summer)
+    - cron: '0 5 * * 4'   # Thursday  07:00 CEST
+  workflow_dispatch:
+    inputs:
+      send_email:
+        description: 'Send coaching email?'
+        type: boolean
+        default: false
 
 jobs:
   sync:
@@ -26,8 +34,8 @@ jobs:
           SMTP_FROM:          ${{ secrets.SMTP_FROM }}
           SMTP_PASSWORD:      ${{ secrets.SMTP_PASSWORD }}
           COACHING_TO:        ${{ secrets.COACHING_TO }}
-          # Set to "true" only for the Sunday midnight run
-          WEEKLY_REVIEW:      ${{ (github.event.schedule == '0 22 * * 0') && 'true' || 'false' }}
+          SEND_COACHING_EMAIL: 'true'
+          WEEKLY_REVIEW:      'false'
         run: python garmin_sync.py
 
       - name: Commit updated garmin_status.js

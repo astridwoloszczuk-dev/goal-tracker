@@ -429,6 +429,8 @@ def format_tracker_for_prompt(data: dict, today_str: str, week_start: str) -> st
                 lines.append(f"  {r['date']} {r.get('course','')} {'[Comp]' if r.get('comp') else ''}: "
                               f"{n} holes, {'+' if delta>0 else ''}{delta} par, "
                               f"GIR:{gir} FW:{fw}/{len(fw_eligible)} 3P:{p3} Dbl:{db}")
+                if r.get("notes"):
+                    lines.append(f"    My notes: {r['notes']}")
             else:
                 lines.append(f"  {r['date']} — no hole data")
     else:
@@ -544,6 +546,79 @@ If she missed targets without good reason, say so. She explicitly asked to be pu
     return msg.content[0].text.strip()
 
 
+GOLF_COACH_SYSTEM = """You are an expert golf coach and sports psychologist working with a club-level amateur
+who is serious about improving. You analyse round statistics and personal notes to pinpoint specific
+weaknesses and prescribe targeted drills. You distinguish clearly between:
+- DRILL: a technique or skill-building exercise
+- PRESSURE DRILL: simulates competitive pressure (games, points, consequences, scoring challenges)
+- MENTAL DRILL: builds focus, pre-shot routine, course management, or emotional resilience
+Your suggestions are specific and actionable — never generic. You know this athlete is working toward
+a 10→9 handicap reduction with two tournaments coming up."""
+
+
+def build_golf_drills(rounds: list, sessions: list) -> str:
+    """Ask Claude to suggest 3 targeted golf drills based on recent round stats and personal notes."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return ""
+
+    round_lines = []
+    for r in rounds:
+        hd = r.get("holes_data") or []
+        played = [h for h in hd if h.get("par") not in (None, "") and h.get("score") not in (None, "")]
+        n = len(played)
+        if not n:
+            continue
+        delta = sum(int(h["score"]) - int(h["par"]) for h in played)
+        gir   = sum(1 for h in played if h.get("gir"))
+        p3    = sum(1 for h in played if h.get("p3"))
+        db    = sum(1 for h in played if int(h["score"]) >= int(h["par"]) + 2)
+        fw_el = [h for h in played if int(h.get("par", 4)) != 3]
+        fw    = sum(1 for h in fw_el if h.get("fw"))
+        line  = (f"{r['date']} {r.get('course', '')} {'[Comp]' if r.get('comp') else ''}: "
+                 f"{n} holes, {'+' if delta > 0 else ''}{delta} vs par | "
+                 f"GIR {gir}/{n}  FW {fw}/{len(fw_el)}  3-putts {p3}  Doubles {db}")
+        if r.get("notes"):
+            line += f"\n    Her notes: \"{r['notes']}\""
+        round_lines.append(line)
+
+    if not round_lines:
+        return ""
+
+    cats = {"round": "full round", "range": "range/scoring", "sga": "SGA", "putt": "putt/chip"}
+    session_lines = [f"  {s.get('date','')}: {cats.get(s.get('cat',''), 'practice')}" for s in sessions]
+
+    prompt = f"""ATHLETE CONTEXT:
+Goal: Lower handicap 10→9 by November 2026.
+Key tournaments: NÖ Meisterschaften May 14–17, Staatsmeisterschaften May 22–25.
+Access to: driving range, SGA area, chipping/putting green, Foresight home simulator. Weekly Pro lesson.
+Today: {TODAY} ({date.today().strftime('%A')})
+
+RECENT ROUNDS (most recent first):
+{chr(10).join(round_lines)}
+
+PRACTICE SESSIONS THIS WEEK:
+{chr(10).join(session_lines) if session_lines else '  None yet'}
+
+Based on the stats and her own notes above, choose the 3 most impactful drills for the next few days.
+You decide the split between DRILL / PRESSURE DRILL / MENTAL DRILL — let the data guide you, not a formula.
+
+Format each drill exactly like this (no extra text before or after):
+
+[TYPE] Drill name
+What: 2 sentences — specific and actionable.
+Why: 1 sentence — directly reference her stats or notes."""
+
+    client = anthropic.Anthropic(api_key=api_key)
+    msg = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=600,
+        system=GOLF_COACH_SYSTEM,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return msg.content[0].text.strip()
+
+
 def send_coaching_email(subject: str, body: str):
     """Send plain-text coaching email via Gmail SMTP."""
     smtp_from = os.environ.get("SMTP_FROM", "claude.w.lowndes@gmail.com")
@@ -617,6 +692,20 @@ def main():
     print(f"\n--- DAILY BRIEF ---\n{brief}\n--- END ---\n")
 
     write_output(metrics, readiness, brief)
+
+    # Send coaching email on Mon/Thu scheduled runs
+    if os.environ.get("SEND_COACHING_EMAIL", "").lower() == "true":
+        print("\nBuilding golf drill suggestions...")
+        drills = build_golf_drills(tracker["rounds"], tracker["sessions"])
+        if drills:
+            print(f"\n--- GOLF DRILLS ---\n{drills}\n--- END ---\n")
+
+        body = brief
+        if drills:
+            body += f"\n\n{'─' * 40}\nGOLF — DRILLS FOR THE NEXT FEW DAYS\n{'─' * 40}\n\n{drills}"
+
+        day_name = date.today().strftime("%A")
+        send_coaching_email(f"Coaching — {day_name} {TODAY}", body)
 
     print("\nDone.")
 
