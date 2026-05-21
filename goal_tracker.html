@@ -199,6 +199,49 @@ async function sbReq(path,method,body){
   }catch(e){console.warn('Supabase sync:',e);}
 }
 
+async function sbGet(path){
+  if(!SB_URL||SB_URL.startsWith('YOUR_'))return[];
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/'+path,{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},
+    });
+    if(!r.ok)return[];
+    return await r.json();
+  }catch(e){console.warn('Supabase load:',e);return[];}
+}
+
+async function loadFromSupabase(){
+  const startDate=new Date();startDate.setDate(startDate.getDate()-120);
+  const startDk=dk(startDate);
+  const[rounds,habits,cardio,sessions,vacations]=await Promise.all([
+    sbGet('golf_rounds?order=date.desc&limit=500'),
+    sbGet('daily_habits?date=gte.'+startDk+'&order=date.desc'),
+    sbGet('cardio_gym?date=gte.'+startDk+'&order=date.desc'),
+    sbGet('golf_sessions?date=gte.'+startDk+'&order=date.asc'),
+    sbGet('vacation_weeks?week_start=gte.'+startDk),
+  ]);
+  if(rounds.length)ss('rounds',rounds.map(r=>({date:r.date,course:r.course||'',comp:r.comp||false,notes:r.notes||'',holesData:r.holes_data||null})));
+  for(const h of habits){
+    const d=h.date;
+    if(h.water_glasses!=null)ss('wat_'+d,h.water_glasses>=1?1:0);
+    if(h.mirror!=null)ss('wbar_mirror_'+d,h.mirror);
+    if(h.protein!=null)ss('wbar_protein_'+d,h.protein);
+    if(h.stretch!=null)ss('wbar_stretch_'+d,h.stretch);
+    if(h.alcohol!=null)ss('wbar_alc_'+d,h.alcohol);
+  }
+  for(const c of cardio){
+    if(c.type==='cardio')ss('wbar_cardio_'+c.slot_index+'_'+c.date,c.value);
+    if(c.type==='gym')ss('wbar_fit_'+c.slot_index+'_'+c.date,c.value);
+  }
+  const sessMap={};
+  for(const s of sessions){
+    if(!sessMap[s.date])sessMap[s.date]=[];
+    sessMap[s.date].push({cat:s.cat,optId:s.opt_id,type:s.type,slot:s.slot,label:s.label,ev:s.extra_value});
+  }
+  for(const[date,list]of Object.entries(sessMap))ss('s_'+date,list);
+  for(const v of vacations)ss('vac_'+v.week_start,true);
+}
+
 async function syncDayHabits(dkey){
   await sbReq('daily_habits','POST',{
     date:dkey,
@@ -302,7 +345,7 @@ function undoFit(slotIdx){
   const barId='fit_'+slotIdx;
   for(const day of [...weekDays()].reverse()){const cur=getWbar(barId,day.dkey);if(cur>0){setWbar(barId,day.dkey,cur-1);syncCardioGym(day.dkey);go(CUR);return;}}
 }
-function undoGlass(dkey){const n=sg('wat_'+dkey)||0;if(n<=0)return;ss('wat_'+dkey,n-1);syncDayHabits(dkey);go(CUR);}
+function undoGlass(dkey){ss('wat_'+dkey,0);syncDayHabits(dkey);go(CUR);}
 
 function tapWbar(barId,dkey,maxVal){
   maxVal=maxVal||2;
@@ -343,7 +386,7 @@ function alcBarHtml(days){
   let total=0;
   for(const day of days){if(getWbar('alc',day.dkey,1)>=1)total++;}
   const warn=total>=5?'<span style="color:var(--rd)">⚠ '+total+'× diese Woche</span>':total>=4?'<span style="color:var(--ye)">'+total+'× diese Woche</span>':'';
-  h+=`<div class="wbar-label"><span>🍷 Alkohol</span>${warn}</div>`;
+  h+=`<div class="wbar-label"><span>🍷 Alcohol</span>${warn}</div>`;
   h+=`<div class="wbar-slots">`;
   // determine color: first 3 neutral/green, 4th orange, 5th+ red
   let cnt=0;
@@ -376,24 +419,23 @@ function glassColor(n){
   return {bg:'rgba(74,222,128,0.35)',border:'#4ade80',text:'#4ade80'};
 }
 function hydrationHtml(days){
-  const elapsed=daysElapsed();
   let met=0;
-  for(const day of days){const gn=sg('wat_'+day.dkey)||0;if(gn>=GLASSES)met++;}
+  for(const day of days){if((sg('wat_'+day.dkey)||0)>=1)met++;}
   let h=`<div class="wbar-row">`;
-  h+=`<div class="wbar-label"><span>💧 Hydration</span><span style="font-size:10px;color:var(--mu)">${met}/${elapsed} Tage ≥${GLASSES} Gläser</span></div>`;
+  h+=`<div class="wbar-label"><span>💧 Water</span><span style="font-size:10px;color:var(--mu)">${met}/7 Tage</span></div>`;
   h+=`<div class="wbar-slots">`;
   for(const day of days){
     const n=sg('wat_'+day.dkey)||0;
-    const c=glassColor(n);
-    h+=`<div class="wslot ${day.isToday?'today-slot':''}" onclick="lpC(()=>tapGlass('${day.dkey}'))" ontouchstart="lpS(()=>undoGlass('${day.dkey}'))" ontouchend="lpE()" ontouchmove="lpE()" style="background:${c.bg};border-color:${c.border}">
+    const cls=n>=1?'done':'';
+    h+=`<div class="wslot ${cls} ${day.isToday?'today-slot':''}" onclick="lpC(()=>tapGlass('${day.dkey}'))" ontouchstart="lpS(()=>undoGlass('${day.dkey}'))" ontouchend="lpE()" ontouchmove="lpE()">
       <span class="wday">${DAYS[day.dow]}</span>
-      <span class="wval" style="color:${c.text};font-weight:600;font-size:11px">${n}</span>
+      <span class="wval">${n>=1?'✓':''}</span>
     </div>`;
   }
   h+=`</div></div>`;
   return h;
 }
-function tapGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,n>=10?0:n+1);syncDayHabits(dkey);go(CUR);}
+function tapGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,n>=1?0:1);syncDayHabits(dkey);go(CUR);}
 
 // ── SLOT COUNTS (golf) ────────────────────────────────────────────
 function getSlotCounts(){
@@ -649,9 +691,9 @@ function renderToday(){
 
   // Week bars card
   h+='<div class="card"><div class="ct">Wochenziele</div>';
-  h+=wbarHtml('mirror',days,'⛳ 5 min Spiegel-Putting','Tippen = abhaken',2,null);
-  h+=wbarHtml('protein',days,'🥩 Protein-Ziel','',2,null);
-  h+=wbarHtml('stretch',days,'🧘 Stretching + Foam Rolling','',2,null);
+  h+=wbarHtml('stretch',days,'🧘 Stretching','',2,null);
+  h+=wbarHtml('mirror',days,'⛳ Mirror Putting','',2,null);
+  h+=wbarHtml('protein',days,'🥩 Protein','',2,null);
   h+=hydrationHtml(days);
   h+=alcBarHtml(days);
   h+='</div>';
@@ -787,9 +829,9 @@ function renderWeek(){
 
   // Week bars (same as today)
   h+='<div class="card"><div class="ct">Wochenziele</div>';
-  h+=wbarHtml('mirror',days,'⛳ 5 min Spiegel-Putting','',2,null);
-  h+=wbarHtml('protein',days,'🥩 Protein-Ziel','',2,null);
-  h+=wbarHtml('stretch',days,'🧘 Stretching + Foam Rolling','',2,null);
+  h+=wbarHtml('stretch',days,'🧘 Stretching','',2,null);
+  h+=wbarHtml('mirror',days,'⛳ Mirror Putting','',2,null);
+  h+=wbarHtml('protein',days,'🥩 Protein','',2,null);
   h+=hydrationHtml(days);
   h+=alcBarHtml(days);
   h+='</div>';
@@ -1201,7 +1243,7 @@ function getWeekData(weeksBack){
       if(getWbar('mirror',wd.dkey)>=1)mirror++;
       if(getWbar('protein',wd.dkey)>=1)protein++;
       if(getWbar('stretch',wd.dkey)>=1)stretch++;
-      if((sg('wat_'+wd.dkey)||0)>=GLASSES)watMet++;
+      if((sg('wat_'+wd.dkey)||0)>=1)watMet++;
       if(getWbar('alc',wd.dkey)>=1)alc++;
       // count days (not total slot taps)
       if([0,1,2,3].some(i=>getWbar('cardio_'+i,wd.dkey)>=1))cardio++;
@@ -1477,7 +1519,9 @@ function showAll(){
 
 // ── INIT ─────────────────────────────────────────────────────────
 document.getElementById('hdate').textContent=today().toLocaleDateString('de-AT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-try{renderToday();}catch(e){console.error('init',e);}
+loadFromSupabase()
+  .then(()=>{try{renderToday();}catch(e){console.error('init',e);}})
+  .catch(()=>{try{renderToday();}catch(e){console.error('init',e);}});
 </script>
 </body>
 </html>
