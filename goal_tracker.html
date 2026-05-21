@@ -935,6 +935,50 @@ function roundStatsHtml(){
   </div>`;
 }
 
+function simpleRoundFormHtml(){
+  return`<div class="card"><div class="ct">${editIdx!==null?'Bearbeiten':'Runde hinzufügen'}</div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="fr"><label>Datum</label><input type="date" id="sr_d" style="width:100%"></div>
+      <div class="fr"><label>Platz</label><input type="text" id="sr_c" placeholder="Fontana" style="width:100%"></div>
+    </div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="fr"><label>Abschlag</label><input type="text" id="sr_t" placeholder="z.B. Gelb" style="width:100%"></div>
+      <div class="fr"><label>Löcher</label>
+        <select id="sr_h" style="width:100%;background:var(--b1);color:var(--tx);border:1px solid var(--b2);border-radius:6px;padding:8px">
+          <option value="9">9 Löcher</option>
+          <option value="18" selected>18 Löcher</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr" style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <input type="checkbox" id="sr_co" style="width:18px;height:18px;accent-color:var(--ac)">
+      <label for="sr_co" style="font-size:14px">Competitive</label>
+    </div>
+    <div class="fr"><label>Notizen</label><textarea id="sr_n" rows="2" placeholder="Notizen..."></textarea></div>
+    <div class="rbtns">
+      <button class="btn btnp" onclick="subSimpleRound()">Speichern</button>
+      <button class="btn" onclick="cancelR()">Abbrechen</button>
+    </div>
+  </div>`;
+}
+
+function subSimpleRound(){
+  const d=el('sr_d').value.trim();
+  if(!d){alert('Datum eingeben');return;}
+  const r={
+    date:d,course:el('sr_c').value.trim()||null,
+    tee:el('sr_t').value.trim()||null,
+    holes:Number(el('sr_h').value)||18,
+    comp:el('sr_co').checked,
+    notes:el('sr_n').value.trim()||null,
+    isSimple:true
+  };
+  if(editIdx!==null)rounds[editIdx]=r;else rounds.unshift(r);
+  ss('rounds',rounds);editIdx=null;
+  syncRounds();logActivity(d,'golf');
+  roundMode='select';renderRounds();
+}
+
 function roundFormHtml(){
   return`<div class="card"><div class="ct">${editIdx!==null?'Bearbeiten':'Neue Runde – Überprüfen &amp; Speichern'}</div>
     <div class="g2" style="margin-bottom:10px">
@@ -961,18 +1005,21 @@ function renderRounds(){
   let h=roundStatsHtml();
 
   if(editIdx!==null){
-    h+=roundFormHtml();
+    h+=rounds[editIdx].isSimple?simpleRoundFormHtml():roundFormHtml();
   } else if(roundMode==='select'){
     const apiKey=localStorage.getItem('anthropic_key')||'';
     h+=`<div class="card">
       <div class="ct">Neue Runde</div>
-      <p style="font-size:13px;color:var(--mu);margin-bottom:12px">Ausgefüllte Scorecard abfotografieren – oder manuell eingeben.</p>
-      <div style="display:flex;gap:8px">
-        <button class="btn btnp" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px" onclick="startScan()">
-          <span style="font-size:18px">📷</span><span>Foto einlesen</span>
+      <p style="font-size:13px;color:var(--mu);margin-bottom:12px">Scorecard scannen, manuell eingeben oder kurz hinzufügen.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btnp" style="flex:1;min-width:80px;display:flex;align-items:center;justify-content:center;gap:6px" onclick="startScan()">
+          <span style="font-size:18px">📷</span><span>Foto</span>
         </button>
-        <button class="btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px" onclick="roundMode='manual';renderRounds()">
+        <button class="btn" style="flex:1;min-width:80px;display:flex;align-items:center;justify-content:center;gap:6px" onclick="roundMode='manual';renderRounds()">
           <span style="font-size:18px">✏️</span><span>Manuell</span>
+        </button>
+        <button class="btn" style="flex:1;min-width:80px;display:flex;align-items:center;justify-content:center;gap:6px" onclick="roundMode='simple';renderRounds()">
+          <span style="font-size:18px">🏌️</span><span>Quick Add</span>
         </button>
       </div>
       ${!apiKey?`<div style="font-size:11px;color:var(--mu);margin-top:10px">📷 Foto-Scan benötigt Anthropic API-Key (in Export-Einstellungen konfigurieren).</div>`:''}
@@ -1001,6 +1048,8 @@ function renderRounds(){
         <button class="btn" onclick="scanFiles=[null,null];scanPreviews=[null,null];roundMode='select';renderRounds()">Abbrechen</button>
       </div>
     </div>`;
+  } else if(roundMode==='simple'){
+    h+=simpleRoundFormHtml();
   } else {
     // manual
     h+=roundFormHtml();
@@ -1010,22 +1059,33 @@ function renderRounds(){
 
   if(editIdx!==null){
     const r=rounds[editIdx];
-    setTimeout(()=>{
-      sv('rf_d',r.date);sv('rf_c',r.course);sv('rf_n',r.notes||'');
-      el('rf_co').checked=!!r.comp;
-      const hd=r.holesData||[];
-      hd.forEach((hdata,i)=>{
-        if(el('hp_'+i))el('hp_'+i).value=hdata.par||'';
-        if(el('hs_'+i))el('hs_'+i).value=hdata.score||'';
-        if(el('hfw_'+i))el('hfw_'+i).checked=!!hdata.fw;
-        if(el('hgir_'+i))el('hgir_'+i).checked=!!hdata.gir;
-        if(el('hud_'+i))el('hud_'+i).checked=!!hdata.ud;
-        if(el('h3p_'+i))el('h3p_'+i).checked=!!hdata.p3;
-        if(el('hdc_'+i))el('hdc_'+i).checked=!!hdata.dc;
-        if(el('hb7_'+i))el('hb7_'+i).checked=!!hdata.b7;
-        onHolePar(i);onHoleGir(i);
-      });
-    },80);
+    if(r.isSimple){
+      setTimeout(()=>{
+        if(el('sr_d'))el('sr_d').value=r.date||'';
+        if(el('sr_c'))el('sr_c').value=r.course||'';
+        if(el('sr_t'))el('sr_t').value=r.tee||'';
+        if(el('sr_h'))el('sr_h').value=r.holes||18;
+        if(el('sr_co'))el('sr_co').checked=!!r.comp;
+        if(el('sr_n'))el('sr_n').value=r.notes||'';
+      },80);
+    }else{
+      setTimeout(()=>{
+        sv('rf_d',r.date);sv('rf_c',r.course);sv('rf_n',r.notes||'');
+        el('rf_co').checked=!!r.comp;
+        const hd=r.holesData||[];
+        hd.forEach((hdata,i)=>{
+          if(el('hp_'+i))el('hp_'+i).value=hdata.par||'';
+          if(el('hs_'+i))el('hs_'+i).value=hdata.score||'';
+          if(el('hfw_'+i))el('hfw_'+i).checked=!!hdata.fw;
+          if(el('hgir_'+i))el('hgir_'+i).checked=!!hdata.gir;
+          if(el('hud_'+i))el('hud_'+i).checked=!!hdata.ud;
+          if(el('h3p_'+i))el('h3p_'+i).checked=!!hdata.p3;
+          if(el('hdc_'+i))el('hdc_'+i).checked=!!hdata.dc;
+          if(el('hb7_'+i))el('hb7_'+i).checked=!!hdata.b7;
+          onHolePar(i);onHoleGir(i);
+        });
+      },80);
+    }
   }
 
   if(rounds.length>0){
@@ -1045,6 +1105,7 @@ function renderRounds(){
         </div>
         <div style="font-size:12px;color:var(--mu);display:flex;flex-wrap:wrap;gap:8px">
           <span>${s.n||'?'} Loch</span>
+          ${r.tee?`<span>Abschlag: ${r.tee}</span>`:''}
           ${s.delta!==null?`<span style="font-weight:700;color:var(--tx)">${Number(s.delta)>0?'+':''}${s.delta} Par${s.n<18?' ('+((dScaled>0?'+':'')+Number(dScaled).toFixed(1))+'/18)':''}</span>`:''}
           ${s.gir!==null?`<span>GIR:${s.gir}</span>`:''}
           ${s.fw!==null?`<span>FW:${s.fw}</span>`:''}
@@ -1227,7 +1288,7 @@ function subRound(){
   renderRounds();
 }
 function cancelR(){editIdx=null;roundMode='select';renderRounds();}
-function editR(i){editIdx=i;roundMode='manual';renderRounds();setTimeout(()=>el('pg-rounds').scrollIntoView({behavior:'smooth'}),100);}
+function editR(i){editIdx=i;roundMode=rounds[i].isSimple?'simple':'manual';renderRounds();setTimeout(()=>el('pg-rounds').scrollIntoView({behavior:'smooth'}),100);}
 function delR(i){if(!confirm('Runde löschen?'))return;rounds.splice(i,1);ss('rounds',rounds);syncRounds();renderRounds();}
 
 // ── ANALYTICS ─────────────────────────────────────────────────────
@@ -1263,15 +1324,19 @@ function getWeekData(weeksBack){
     const girs=rdStats.filter(s=>s.gir!==null&&s.n>0).map(s=>sc18(s.gir,s.n));
     const uds=rdStats.filter(s=>s.ud!==null&&s.n>0).map(s=>sc18(s.ud,s.n));
     const dbs=rdStats.filter(s=>s.db!==null&&s.n>0).map(s=>sc18(s.db,s.n));
+    const fws=rdStats.filter(s=>s.fw!==null&&s.n>0).map(s=>sc18(s.fw,s.n));
+    const p3s=rdStats.filter(s=>s.p3!==null&&s.n>0).map(s=>sc18(s.p3,s.n));
     const avg=arr=>arr.length?(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1):null;
     const holes=rdStats.reduce((s,st)=>s+(st.n||0),0);
+    const holesNormal=rds.reduce((a,r,i)=>r.comp?a:a+(rdStats[i].n||0),0);
+    const holesComp=rds.reduce((a,r,i)=>r.comp?a+(rdStats[i].n||0):a,0);
     const isVacWeek=!!sg('vac_'+dk(mon));
     if(isVacWeek){
-      out.push({lbl,vacation:true,mirror:null,protein:null,stretch:null,watMet:null,alc:null,cardio:null,fit:null,holes:null,range:null,sga:null,chipputt:null,rounds:null,comp:null,avgDelta:null,avgGir:null,avgUd:null,avgDb:null});
+      out.push({lbl,vacation:true,mirror:null,protein:null,stretch:null,watMet:null,alc:null,cardio:null,fit:null,holes:null,holesNormal:null,holesComp:null,range:null,sga:null,chipputt:null,rounds:null,comp:null,avgDelta:null,avgGir:null,avgUd:null,avgDb:null,avgFw:null,avgP3:null});
     }else{
-      out.push({lbl,vacation:false,mirror,protein,stretch,watMet,alc,cardio,fit,holes,range,sga,chipputt,
+      out.push({lbl,vacation:false,mirror,protein,stretch,watMet,alc,cardio,fit,holes,holesNormal,holesComp,range,sga,chipputt,
         rounds:rds.length,comp:rds.filter(r=>r.comp).length,
-        avgDelta:avg(deltas),avgGir:avg(girs),avgUd:avg(uds),avgDb:avg(dbs)});
+        avgDelta:avg(deltas),avgGir:avg(girs),avgUd:avg(uds),avgDb:avg(dbs),avgFw:avg(fws),avgP3:avg(p3s)});
     }
   }
   return out;
@@ -1330,17 +1395,111 @@ function drawChart(id,labels,datasets,opts){
   }
 }
 
+function drawBarChart(id,labels,datasets,opts){
+  opts=opts||{};
+  const c=el(id);if(!c)return;
+  const ctx=c.getContext('2d');
+  const W=c.width,H=c.height;
+  const p={t:12,r:32,b:28,l:32};
+  const cW=W-p.l-p.r,cH=H-p.t-p.b;
+  ctx.clearRect(0,0,W,H);
+  const n=labels.length;
+  let mn,mx;
+  if(opts.stacked){
+    const sums=datasets[0].vals.map((_,i)=>
+      datasets.reduce((s,ds)=>s+(ds.vals[i]!=null?Number(ds.vals[i]):0),0));
+    mx=Math.max(...sums,1);mn=0;
+  }else{
+    const all=datasets.flatMap(d=>d.vals.filter(v=>v!=null)).map(Number);
+    if(!all.length){
+      ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='12px sans-serif';ctx.textAlign='center';
+      ctx.fillText('Noch keine Daten',W/2,H/2);return;
+    }
+    mn=opts.z?0:Math.min(0,...all);
+    mx=Math.max(...all,mn+0.5);
+  }
+  const rng=mx-mn||1;
+  const gap=cW/n;
+  for(let i=0;i<=4;i++){
+    const y=p.t+cH*(1-i/4);
+    ctx.lineWidth=1;ctx.strokeStyle='rgba(255,255,255,0.06)';
+    ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(p.l+cW,y);ctx.stroke();
+    const v=mn+rng*i/4;
+    const vStr=Math.abs(v)<0.05?'0':(Number.isInteger(v)?v:v.toFixed(1));
+    ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='9px sans-serif';
+    ctx.textAlign='right';ctx.fillText(vStr,p.l-3,y+3);
+    ctx.textAlign='left';ctx.fillText(vStr,p.l+cW+3,y+3);
+  }
+  if(mn<0&&mx>0){
+    const zy=p.t+cH*(1-(-mn)/rng);
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(p.l,zy);ctx.lineTo(p.l+cW,zy);ctx.stroke();
+  }
+  if(opts.target!=null){
+    const ty=p.t+cH*(1-(opts.target-mn)/rng);
+    ctx.setLineDash([4,3]);ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(p.l,ty);ctx.lineTo(p.l+cW,ty);ctx.stroke();ctx.setLineDash([]);
+  }
+  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='9px sans-serif';ctx.textAlign='center';
+  labels.forEach((l,i)=>{if(n<=8||i%2===0)ctx.fillText(l,p.l+i*gap+gap/2,H-6);});
+  const zeroY=p.t+cH*(1-(-mn)/rng);
+  if(opts.stacked){
+    labels.forEach((_,i)=>{
+      let acc=0;
+      for(const ds of datasets){
+        const v=ds.vals[i]!=null?Number(ds.vals[i]):0;if(!v)continue;
+        const yTop=p.t+cH*(1-(acc+v)/rng);
+        const yBot=p.t+cH*(1-acc/rng);
+        const cx=p.l+i*gap+gap/2;
+        ctx.fillStyle=ds.col;
+        ctx.fillRect(cx-gap*0.35,yTop,gap*0.7,Math.max(1,yBot-yTop));
+        acc+=v;
+      }
+    });
+  }else if(datasets.length===1){
+    const ds=datasets[0];
+    labels.forEach((_,i)=>{
+      const v=ds.vals[i];if(v==null)return;
+      const vn=Number(v);
+      const cx=p.l+i*gap+gap/2;
+      const y1=vn>=0?p.t+cH*(1-(vn-mn)/rng):zeroY;
+      const y2=vn>=0?zeroY:p.t+cH*(1-(vn-mn)/rng);
+      ctx.fillStyle=ds.col;
+      ctx.fillRect(cx-gap*0.35,y1,gap*0.7,Math.max(1,y2-y1));
+    });
+  }else{
+    const nd=datasets.length;
+    const totalW=gap*0.72;
+    const subW=totalW/nd;
+    datasets.forEach((ds,di)=>{
+      labels.forEach((_,i)=>{
+        const v=ds.vals[i];if(v==null)return;
+        const vn=Number(v);
+        const x=p.l+i*gap+(gap-totalW)/2+di*subW;
+        const y1=vn>=0?p.t+cH*(1-(vn-mn)/rng):zeroY;
+        const y2=vn>=0?zeroY:p.t+cH*(1-(vn-mn)/rng);
+        ctx.fillStyle=ds.col;
+        ctx.fillRect(x,y1,subW-1,Math.max(1,y2-y1));
+      });
+    });
+  }
+}
+
 function renderAnalytics(){
   const W=12;const data=getWeekData(W);const lbls=data.map(d=>d.lbl);
   const cw=Math.min(window.innerWidth-32,600);
   let h=`<div style="font-size:12px;color:var(--mu);margin-bottom:12px">Rolling ${W} Wochen</div>`;
-  const charts=[
-    {id:'c_sc',title:'Score zu Par (Ø /18)',h:130,ds:[{vals:data.map(d=>d.avgDelta!==null?Number(d.avgDelta):null),col:'#c8a96e'}]},
-    {id:'c_gi',title:'GIR &amp; Up&amp;Downs (Ø /18)',h:130,ds:[{vals:data.map(d=>d.avgGir!==null?Number(d.avgGir):null),col:'#4ade80'},{vals:data.map(d=>d.avgUd!==null?Number(d.avgUd):null),col:'#60a5fa'}],leg:'<span style="color:#4ade80">●</span> GIR &nbsp;<span style="color:#60a5fa">●</span> U&D',z:true},
-    {id:'c_db',title:'Double Bogeys (Ø /18)',h:110,ds:[{vals:data.map(d=>d.avgDb!==null?Number(d.avgDb):null),col:'#f87171'}],z:true},
+  const barCharts=[
+    {id:'c_sc',title:'Score zu Par (Ø /18)',h:130,ds:[{vals:data.map(d=>d.avgDelta!=null?Number(d.avgDelta):null),col:'#c8a96e'}]},
+    {id:'c_gi',title:'GIR &amp; Fairways (Ø /18)',h:130,ds:[{vals:data.map(d=>d.avgGir!=null?Number(d.avgGir):null),col:'#4ade80'},{vals:data.map(d=>d.avgFw!=null?Number(d.avgFw):null),col:'#60a5fa'}],leg:'<span style="color:#4ade80">■</span> GIR &nbsp;<span style="color:#60a5fa">■</span> Fairways',z:true},
+    {id:'c_db',title:'Double Bogeys &amp; 3-Putts (Ø /18)',h:120,ds:[{vals:data.map(d=>d.avgDb!=null?Number(d.avgDb):null),col:'#f87171'},{vals:data.map(d=>d.avgP3!=null?Number(d.avgP3):null),col:'#fb923c'}],leg:'<span style="color:#f87171">■</span> Dbl Bogeys &nbsp;<span style="color:#fb923c">■</span> 3-Putts',z:true},
+    {id:'c_ud',title:'Up &amp; Downs (Ø /18)',h:110,ds:[{vals:data.map(d=>d.avgUd!=null?Number(d.avgUd):null),col:'#60a5fa'}],z:true},
     {id:'c_holes',title:'Holes Played / Week',h:120,ds:[
-      {vals:data.map(d=>d.holes),col:'#c8a96e',target:36},
-    ],leg:'Strichlinie = Ziel (36)',z:true},
+      {vals:data.map(d=>d.holesNormal),col:'#c8a96e'},
+      {vals:data.map(d=>d.holesComp),col:'#f59e0b'},
+    ],leg:'<span style="color:#c8a96e">■</span> Normal &nbsp;<span style="color:#f59e0b">■</span> Competitive &nbsp; Strichlinie = Ziel (36)',stacked:true,target:36},
+  ];
+  const lineCharts=[
     {id:'c_golf',title:'Practice Sessions / Week',h:130,ds:[
       {vals:data.map(d=>d.range),col:'#60a5fa',target:2},
       {vals:data.map(d=>d.sga),col:'#4ade80',target:2},
@@ -1358,13 +1517,16 @@ function renderAnalytics(){
       {vals:data.map(d=>d.fit),col:'#60a5fa',target:2},
     ],leg:'<span style="color:#4ade80">●</span> Cardio (Ziel 3) &nbsp;<span style="color:#60a5fa">●</span> Weights (Ziel 2)',z:true},
   ];
-  for(const c of charts){
+  for(const c of [...barCharts,...lineCharts]){
     h+=`<div class="card"><div class="ct">${c.title}</div><canvas id="${c.id}" width="${cw}" height="${c.h}"></canvas>`;
     if(c.leg)h+=`<div style="font-size:11px;color:var(--mu);margin-top:4px">${c.leg}</div>`;
     h+='</div>';
   }
   setHtml('pg-analytics',h);
-  setTimeout(()=>{for(const c of charts)drawChart(c.id,lbls,c.ds,{z:!!c.z});},60);
+  setTimeout(()=>{
+    for(const c of barCharts)drawBarChart(c.id,lbls,c.ds,{z:!!c.z,stacked:!!c.stacked,target:c.target});
+    for(const c of lineCharts)drawChart(c.id,lbls,c.ds,{z:!!c.z});
+  },60);
 }
 
 // ── EXPORT ────────────────────────────────────────────────────────
