@@ -1331,13 +1331,9 @@ function getWeekData(weeksBack){
     const holesNormal=rds.reduce((a,r,i)=>r.comp?a:a+(rdStats[i].n||0),0);
     const holesComp=rds.reduce((a,r,i)=>r.comp?a+(rdStats[i].n||0):a,0);
     const isVacWeek=!!sg('vac_'+dk(mon));
-    if(isVacWeek){
-      out.push({lbl,vacation:true,mirror:null,protein:null,stretch:null,watMet:null,alc:null,cardio:null,fit:null,holes:null,holesNormal:null,holesComp:null,range:null,sga:null,chipputt:null,rounds:null,comp:null,avgDelta:null,avgGir:null,avgUd:null,avgDb:null,avgFw:null,avgP3:null});
-    }else{
-      out.push({lbl,vacation:false,mirror,protein,stretch,watMet,alc,cardio,fit,holes,holesNormal,holesComp,range,sga,chipputt,
-        rounds:rds.length,comp:rds.filter(r=>r.comp).length,
-        avgDelta:avg(deltas),avgGir:avg(girs),avgUd:avg(uds),avgDb:avg(dbs),avgFw:avg(fws),avgP3:avg(p3s)});
-    }
+    out.push({lbl,vacation:isVacWeek,mirror,protein,stretch,watMet,alc,cardio,fit,holes,holesNormal,holesComp,range,sga,chipputt,
+      rounds:rds.length,comp:rds.filter(r=>r.comp).length,
+      avgDelta:avg(deltas),avgGir:avg(girs),avgUd:avg(uds),avgDb:avg(dbs),avgFw:avg(fws),avgP3:avg(p3s)});
   }
   return out;
 }
@@ -1390,7 +1386,18 @@ function drawChart(id,labels,datasets,opts){
     ds.vals.forEach((v,i)=>{
       if(v===null)return;
       const x=p.l+i*step;const y=p.t+cH*(1-(Number(v)-mn)/rng);
-      ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=ds.col;ctx.fill();
+      const isVac=opts.vacation&&opts.vacation[i];
+      ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);
+      ctx.fillStyle=isVac?'rgba(180,180,180,0.55)':ds.col;ctx.fill();
+    });
+  }
+  if(opts.vacation){
+    ctx.fillStyle='rgba(255,255,255,0.1)';
+    const half=n>1?step/2:cW/2;
+    opts.vacation.forEach((isVac,i)=>{
+      if(!isVac)return;
+      const cx=p.l+i*step;
+      ctx.fillRect(Math.max(p.l,cx-half),p.t,Math.min(half*2,p.l+cW-Math.max(p.l,cx-half)),cH);
     });
   }
 }
@@ -1483,6 +1490,13 @@ function drawBarChart(id,labels,datasets,opts){
       });
     });
   }
+  if(opts.vacation){
+    ctx.fillStyle='rgba(255,255,255,0.1)';
+    opts.vacation.forEach((isVac,i)=>{
+      if(!isVac)return;
+      ctx.fillRect(p.l+i*gap,p.t,gap,cH);
+    });
+  }
 }
 
 function renderAnalytics(){
@@ -1523,9 +1537,10 @@ function renderAnalytics(){
     h+='</div>';
   }
   setHtml('pg-analytics',h);
+  const vacFlags=data.map(d=>d.vacation);
   setTimeout(()=>{
-    for(const c of barCharts)drawBarChart(c.id,lbls,c.ds,{z:!!c.z,stacked:!!c.stacked,target:c.target});
-    for(const c of lineCharts)drawChart(c.id,lbls,c.ds,{z:!!c.z});
+    for(const c of barCharts)drawBarChart(c.id,lbls,c.ds,{z:!!c.z,stacked:!!c.stacked,target:c.target,vacation:vacFlags});
+    for(const c of lineCharts)drawChart(c.id,lbls,c.ds,{z:!!c.z,vacation:vacFlags});
   },60);
 }
 
