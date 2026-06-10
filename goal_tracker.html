@@ -142,38 +142,38 @@ textarea{resize:vertical;min-height:60px}
 const DAYFULL=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const DAYS=['So','Mo','Di','Mi','Do','Fr','Sa'];
 
-const CATS=[
-  {id:'round',label:'Rounds',col:'#c8a96e',opts:[
-    {id:'comp18',label:'Competitive 18 Hole',type:'game',slot:'Round',extra:null},
-    {id:'comp9',label:'Competitive 9 Hole',type:'game',slot:'Round',extra:null},
-    {id:'match',label:'Match',type:'game',slot:'Round',extra:null},
-    {id:'pracround',label:'Practice Round',type:'game',slot:'Round',extra:null},
-  ]},
-  {id:'range',label:'Range',col:'#60a5fa',opts:[
-    {id:'sc_drill',label:'Scoring Drill',type:'drill',slot:'Score',extra:{t:'text',label:'Describe'}},
-    {id:'sc_pyramid',label:'Scoring Game – Pyramid',type:'game',slot:'Score',extra:{t:'num',label:'Attempts needed'}},
-    {id:'sc_5mb',label:'Scoring Game – 5 Matchballs',type:'game',slot:'Score',extra:{t:'num',label:'Greens Hit'}},
-    {id:'sc_olly',label:'Scoring Game – Olly',type:'game',slot:'Score',extra:{t:'text',label:'Describe'}},
-    {id:'drv_drill',label:'Driving Drill',type:'drill',slot:'Drive',extra:{t:'text',label:'Describe'}},
-    {id:'drv_fw',label:'Driving Game – 10 to 30m FW',type:'game',slot:'Drive',extra:{t:'num',label:'FW Hit'}},
-    {id:'drv_olly',label:'Driving Game – Olly',type:'game',slot:'Drive',extra:{t:'text',label:'Describe'}},
-  ]},
-  {id:'sga',label:'SGA',col:'#4ade80',opts:[
-    {id:'sga_drill',label:'SGA Drill',type:'drill',slot:'Pitch',extra:{t:'text',label:'Describe'}},
-    {id:'sga_10to2',label:'SGA Game – 10 to 2m',type:'game',slot:'Pitch',extra:{t:'num',label:'Within 2m'}},
-    {id:'sga_olly',label:'SGA Game – Olly',type:'game',slot:'Pitch',extra:{t:'text',label:'Describe'}},
-  ]},
-  {id:'putt',label:'Putting/Chipping',col:'#c084fc',opts:[
-    {id:'pt_pace',label:'Drill – 9 Ball Pace',type:'drill',slot:'Putt/Chip',extra:null},
-    {id:'pt_clock',label:'Drill – 1/2/3m Around the Clock',type:'drill',slot:'Putt/Chip',extra:null},
-    {id:'pt_free',label:'Putting/Chipping Drill',type:'drill',slot:'Putt/Chip',extra:{t:'text',label:'Describe'}},
-    {id:'pt_wes',label:'Game – Wes to 12 Points',type:'game',slot:'Putt/Chip',extra:{t:'num',label:'Score'}},
-    {id:'pt_olly',label:'Game – Olly',type:'game',slot:'Putt/Chip',extra:{t:'text',label:'Describe'}},
-  ]},
+const LOCATIONS=[
+  {id:'putting_green',label:'Putting Green',col:'#c084fc'},
+  {id:'sga',          label:'SGA',          col:'#4ade80'},
+  {id:'range',        label:'Range',        col:'#60a5fa'},
+  {id:'on_course',    label:'On Course',    col:'#c8a96e'},
 ];
-
-const DRILL_SLOTS=['Score','Drive','Pitch','Putt/Chip','Putt/Chip2'];
-const GAME_SLOTS=['Score','Drive','Pitch','Putt/Chip','Putt/Chip2','Round'];
+const PRACTICE_TYPES=[
+  'Putting','Chipping','Up & Downs','Pitching','Bunkers','Scoring','Long Game','Driver',
+];
+const ROUND_OPTS=[
+  {id:'comp18',   label:'Competitive 18 Hole',type:'game',slot:'Round'},
+  {id:'comp9',    label:'Competitive 9 Hole', type:'game',slot:'Round'},
+  {id:'match',    label:'Match',              type:'game',slot:'Round'},
+  {id:'pracround',label:'Practice Round',     type:'game',slot:'Round'},
+];
+function catCol(catId){
+  const loc=LOCATIONS.find(l=>l.id===catId);
+  if(loc)return loc.col;
+  if(catId==='round')return'#c8a96e';
+  if(catId==='putt')return'#c084fc';
+  return'#888';
+}
+function typeToId(t){return t.toLowerCase().replace(/[^a-z]/g,'_');}
+// legacy CATS alias so old stored sessions still render correctly
+const CATS=[
+  {id:'round',       label:'Round',          col:'#c8a96e'},
+  {id:'range',       label:'Range',          col:'#60a5fa'},
+  {id:'sga',         label:'SGA',            col:'#4ade80'},
+  {id:'putt',        label:'Putting/Chipping',col:'#c084fc'},
+  {id:'putting_green',label:'Putting Green', col:'#c084fc'},
+  {id:'on_course',   label:'On Course',      col:'#c8a96e'},
+];
 const GLASSES=6;
 
 // ── STORAGE ──────────────────────────────────────────────────────
@@ -438,23 +438,15 @@ function hydrationHtml(days){
 function tapGlass(dkey){const n=sg('wat_'+dkey)||0;ss('wat_'+dkey,n>=1?0:1);syncDayHabits(dkey);go(CUR);}
 
 // ── SLOT COUNTS (golf) ────────────────────────────────────────────
-function getSlotCounts(){
-  // aggregate all sessions across the whole current week
-  // Putt/Chip has 2 slots: first fills 'Putt/Chip', overflow fills 'Putt/Chip2'
-  const dr={},gm={};
+function getLocCounts(){
+  const c={putting_green:0,sga:0,range:0,on_course:0};
   for(const day of weekDays()){
     for(const s of getSess(day.dkey)){
-      let slot=s.slot;
-      const map=s.type==='drill'?dr:gm;
-      if(slot==='Putt/Chip'){
-        // fill first slot, then overflow to second
-        const cur=map['Putt/Chip']||0;
-        if(cur>=1) slot='Putt/Chip2';
-      }
-      map[slot]=(map[slot]||0)+1;
+      if(s.cat==='putt'||s.cat==='putting_green')c.putting_green++;
+      else if(c.hasOwnProperty(s.cat))c[s.cat]++;
     }
   }
-  return{dr,gm};
+  return c;
 }
 
 // Auto-compute Round slot from rounds tab
@@ -473,19 +465,15 @@ function roundSlotDone(){
 
 // ── STATUS BARS (golf sessions) ───────────────────────────────────
 function statusBarsHtml(dkey){
-  const{dr,gm}=getSlotCounts();
+  const c=getLocCounts();
   const roundDone=roundSlotDone();
-  let h='<div class="sbars">';
-  h+='<div class="srow"><div class="slbl"><span>Drills</span></div><div class="slots">';
-  for(const s of DRILL_SLOTS){const c=dr[s]||0;const lbl=s==='Putt/Chip2'?'Putt/Chip':s;h+=`<div class="slot ${c>=2?'d2':c>=1?'d1':''}">${lbl}</div>`;}
-  h+='</div></div>';
-  h+='<div class="srow"><div class="slbl"><span>Games &amp; Rounds</span></div><div class="slots">';
-  for(const s of GAME_SLOTS){
-    const c=s==='Round'?(roundDone?1:0):(gm[s]||0);
-    const lbl=s==='Putt/Chip2'?'Putt/Chip':s==='Round'?'Round':s;
-    const extra=s==='Round'?' (auto)':'';
-    h+=`<div class="slot ${c>=2?'d2':c>=1?'d1':''}" title="${extra}">${lbl}</div>`;
+  let h='<div class="sbars"><div class="srow"><div class="slbl"><span>This week</span></div><div class="slots">';
+  for(const loc of LOCATIONS){
+    const n=c[loc.id]||0;
+    h+=`<div class="slot ${n>=2?'d2':n>=1?'d1':''}" style="${n>=1?'border-color:'+loc.col:''}">` +
+       `<span style="font-size:9px">${loc.label}</span></div>`;
   }
+  h+=`<div class="slot ${roundDone?'d1':''}" title="auto">Round</div>`;
   h+='</div></div></div>';
   return h;
 }
@@ -495,10 +483,10 @@ function sessionsHtml(dkey){
   const sess=getSess(dkey);
   let h='';
   sess.forEach((s,i)=>{
-    const cat=CATS.find(c=>c.id===s.cat);
-    const col=cat?cat.col:'#888';
+    const col=catCol(s.cat);
+    const catLbl=CATS.find(c=>c.id===s.cat)?.label||s.cat;
     let txt=`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:5px;vertical-align:middle"></span>`;
-    txt+=`<b>${cat?cat.label:s.cat}</b> — ${s.label}`;
+    txt+=`<b>${catLbl}</b> — ${s.label}`;
     if(s.ev)txt+=` <span style="color:var(--mu)">(${s.ev})</span>`;
     txt+=` <span style="font-size:10px;color:var(--mu)">[${s.type}]</span>`;
     h+=`<div class="sitem"><span class="sitem-txt">${txt}</span><button class="sitem-del" onclick="remSess('${dkey}',${i})">×</button></div>`;
@@ -512,17 +500,18 @@ function golfBlockHtml(dkey){
   h+='<div class="ct" style="margin-bottom:8px">Golf Sessions</div>';
   h+=statusBarsHtml(dkey);
   h+=sessionsHtml(dkey);
-  h+=`<div style="display:flex;gap:6px;margin-top:8px">
-    <select id="cs_${dkey}" onchange="onCatChange('${dkey}')" style="flex:1;font-size:13px">
-      <option value="">Kategorie...</option>
-      ${CATS.map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}
+  h+=`<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+    <select id="cs_${dkey}" onchange="onCatChange('${dkey}')" style="flex:1;min-width:110px;font-size:13px">
+      <option value="">Ort / Art...</option>
+      <option value="round">Round</option>
+      ${LOCATIONS.map(l=>`<option value="${l.id}">${l.label}</option>`).join('')}
     </select>
-    <select id="os_${dkey}" onchange="onOptChange('${dkey}')" style="flex:2;font-size:13px">
+    <select id="os_${dkey}" onchange="onOptChange('${dkey}')" style="flex:2;min-width:130px;font-size:13px">
       <option value="">Auswählen...</option>
     </select>
   </div>
   <div id="ea_${dkey}"></div>
-  <div style="margin-top:6px"><button class="btn btns" style="width:100%;opacity:0.5;font-size:11px" onclick="addSess('${dkey}')">+ Manuell hinzufügen</button></div>`;
+  <div style="margin-top:6px"><button class="btn btns" style="width:100%;opacity:0.5;font-size:11px" onclick="addSess('${dkey}')">+ Hinzufügen</button></div>`;
   h+='</div>';
   return h;
 }
@@ -542,45 +531,62 @@ function crHtml(fid,label,checked,dkey){
 // ── SESSION HANDLERS ──────────────────────────────────────────────
 function onCatChange(dkey){
   const catId=el('cs_'+dkey).value;
-  const cat=CATS.find(c=>c.id===catId);
   const os=el('os_'+dkey);
   os.innerHTML='<option value="">Auswählen...</option>';
-  if(cat)cat.opts.forEach(o=>os.innerHTML+=`<option value="${o.id}">${o.label}</option>`);
   setHtml('ea_'+dkey,'');
+  if(catId==='round'){
+    ROUND_OPTS.forEach(o=>os.innerHTML+=`<option value="${o.id}">${o.label}</option>`);
+  } else if(catId){
+    PRACTICE_TYPES.forEach(t=>os.innerHTML+=`<option value="${typeToId(t)}">${t}</option>`);
+  }
 }
 
 function onOptChange(dkey){
   const catId=el('cs_'+dkey).value;
-  const optId=el('os_'+dkey).value;
-  const cat=CATS.find(c=>c.id===catId);
-  const opt=cat?cat.opts.find(o=>o.id===optId):null;
+  const typeId=el('os_'+dkey).value;
   const ea=el('ea_'+dkey);
-  if(!opt){if(ea)ea.innerHTML='';return;}
+  if(!typeId){if(ea)ea.innerHTML='';return;}
   let inner='';
-  if(opt.extra){
-    const inp=opt.extra.t==='num'
-      ?`<input type="number" id="ei_${dkey}" min="0" placeholder="0" style="max-width:100%;margin-bottom:8px" onkeydown="if(event.key==='Enter')addSess('${dkey}')">`
-      :`<input type="text" id="ei_${dkey}" maxlength="80" placeholder="..." style="margin-bottom:8px" onkeydown="if(event.key==='Enter')addSess('${dkey}')">`;
-    inner+=`<label>${opt.extra.label}</label>${inp}`;
+  if(catId==='round'){
+    inner=`<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="eck_${dkey}" onchange="if(this.checked)addSess('${dkey}')" style="width:18px;height:18px;accent-color:var(--ac)">
+      <span style="font-size:13px">✓ Hinzufügen</span></label>`;
+  } else {
+    inner=`<div style="display:flex;gap:6px;margin-bottom:6px">
+      <select id="ms_${dkey}" style="flex:1;font-size:13px">
+        <option value="drill">Drill</option>
+        <option value="game">Game</option>
+      </select>
+    </div>
+    <input type="text" id="ei_${dkey}" maxlength="80" placeholder="Notiz (optional)..." style="margin-bottom:8px;width:100%" onkeydown="if(event.key==='Enter')addSess('${dkey}')">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="eck_${dkey}" onchange="if(this.checked)addSess('${dkey}')" style="width:18px;height:18px;accent-color:var(--ac)">
+      <span style="font-size:13px">✓ Hinzufügen (oder Enter)</span></label>`;
+    setTimeout(()=>{const i=el('ei_'+dkey);if(i)i.focus();},50);
   }
-  inner+=`<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-    <input type="checkbox" id="eck_${dkey}" onchange="if(this.checked)addSess('${dkey}')" style="width:18px;height:18px;accent-color:var(--ac)">
-    <span style="font-size:13px">✓ Hinzufügen${opt.extra?' (oder Enter)':''}</span>
-  </label>`;
   if(ea)ea.innerHTML=`<div class="earea">${inner}</div>`;
-  if(opt.extra)setTimeout(()=>{const i=el('ei_'+dkey);if(i)i.focus();},50);
 }
 
 function addSess(dkey){
   const catId=el('cs_'+dkey)?el('cs_'+dkey).value:'';
-  const optId=el('os_'+dkey)?el('os_'+dkey).value:'';
-  if(!catId||!optId)return;
-  const cat=CATS.find(c=>c.id===catId);
-  const opt=cat?cat.opts.find(o=>o.id===optId):null;
-  if(!opt)return;
-  const ev=opt.extra?(el('ei_'+dkey)?el('ei_'+dkey).value:''):'';
+  const typeId=el('os_'+dkey)?el('os_'+dkey).value:'';
+  if(!catId||!typeId)return;
+  let sessObj;
+  if(catId==='round'){
+    const opt=ROUND_OPTS.find(o=>o.id===typeId);
+    if(!opt)return;
+    sessObj={cat:'round',optId:opt.id,type:opt.type,slot:'Round',label:opt.label,ev:''};
+  } else {
+    const modeEl=el('ms_'+dkey);
+    const mode=modeEl?modeEl.value:'drill';
+    const ev=(el('ei_'+dkey)?el('ei_'+dkey).value:'').trim();
+    const typeName=PRACTICE_TYPES.find(t=>typeToId(t)===typeId)||typeId;
+    const modeLabel=mode.charAt(0).toUpperCase()+mode.slice(1);
+    const label=`${typeName} — ${modeLabel}`;
+    sessObj={cat:catId,optId:typeId+'_'+mode,type:mode,slot:catId,label,ev};
+  }
   const sess=getSess(dkey);
-  sess.push({cat:catId,optId:opt.id,type:opt.type,slot:opt.slot,label:opt.label,ev});
+  sess.push(sessObj);
   saveSess(dkey,sess);
   syncGolfSessions(dkey);
   logActivity(dkey,'golf');
@@ -1299,7 +1305,7 @@ function getWeekData(weeksBack){
     const lbl=mon.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit'});
     const wdays=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);wdays.push({d,dkey:dk(d)});}
     let mirror=0,protein=0,stretch=0,watMet=0,alc=0;
-    let cardio=0,fit=0,range=0,sga=0,chipputt=0;
+    let cardio=0,fit=0,range=0,sga=0,chipputt=0,oncourse=0;
     for(const wd of wdays){
       if(getWbar('mirror',wd.dkey)>=1)mirror++;
       if(getWbar('protein',wd.dkey)>=1)protein++;
@@ -1312,7 +1318,8 @@ function getWeekData(weeksBack){
       const sess=getSess(wd.dkey);
       range+=sess.filter(s=>s.cat==='range').length;
       sga+=sess.filter(s=>s.cat==='sga').length;
-      chipputt+=sess.filter(s=>s.cat==='putt').length;
+      chipputt+=sess.filter(s=>s.cat==='putt'||s.cat==='putting_green').length;
+      oncourse+=sess.filter(s=>s.cat==='on_course').length;
     }
     const rds=(sg('rounds')||[]).filter(r=>{
       if(!r.date)return false;
@@ -1331,7 +1338,7 @@ function getWeekData(weeksBack){
     const holesNormal=rds.reduce((a,r,i)=>r.comp?a:a+(rdStats[i].n||0),0);
     const holesComp=rds.reduce((a,r,i)=>r.comp?a+(rdStats[i].n||0):a,0);
     const isVacWeek=!!sg('vac_'+dk(mon));
-    out.push({lbl,vacation:isVacWeek,mirror,protein,stretch,watMet,alc,cardio,fit,holes,holesNormal,holesComp,range,sga,chipputt,
+    out.push({lbl,vacation:isVacWeek,mirror,protein,stretch,watMet,alc,cardio,fit,holes,holesNormal,holesComp,range,sga,chipputt,oncourse,
       rounds:rds.length,comp:rds.filter(r=>r.comp).length,
       avgDelta:avg(deltas),avgGir:avg(girs),avgUd:avg(uds),avgDb:avg(dbs),avgFw:avg(fws),avgP3:avg(p3s)});
   }
@@ -1518,7 +1525,8 @@ function renderAnalytics(){
       {vals:data.map(d=>d.range),col:'#60a5fa',target:2},
       {vals:data.map(d=>d.sga),col:'#4ade80',target:2},
       {vals:data.map(d=>d.chipputt),col:'#c084fc',target:2},
-    ],leg:'<span style="color:#60a5fa">●</span> Range &nbsp;<span style="color:#4ade80">●</span> SGA &nbsp;<span style="color:#c084fc">●</span> Chip&amp;Putt &nbsp; Strichlinie = Ziel (2)',z:true},
+      {vals:data.map(d=>d.oncourse),col:'#c8a96e',target:1},
+    ],leg:'<span style="color:#60a5fa">●</span> Range &nbsp;<span style="color:#4ade80">●</span> SGA &nbsp;<span style="color:#c084fc">●</span> Putting Green &nbsp;<span style="color:#c8a96e">●</span> On Course &nbsp; Strichlinie = Ziel',z:true},
     {id:'c_hab',title:'Habit Adherence (days / week)',h:130,ds:[
       {vals:data.map(d=>d.mirror),col:'#c8a96e',target:7},
       {vals:data.map(d=>d.protein),col:'#4ade80',target:7},
