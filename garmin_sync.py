@@ -291,10 +291,18 @@ def derive_readiness(metrics: dict, garmin_acts: list = None, watchoff: dict = N
     sessions["Golf"] = {"status": gst,
                         "reason": "Aerobic volume + back/leg load — fine unless legs are cooked."}
 
+    # Confidence note: sleep is the overnight anchor. If it's missing (watch on the
+    # charger), the score leans on body battery (which can be stale) + HRV only — flag it.
+    low_conf = metrics.get("sleep_score") is None
     summary = (f"Readiness {corrected}/100 — recovery base {base} (body battery/sleep/HRV) "
                f"− weights {strength_pen} − golf {golf_pen}. Runs judged by HR, not Garmin's label. "
                f"On-device, no Claude.")
-    return {"score": corrected, "summary": summary, "sessions": sessions}
+    if low_conf:
+        summary += " ⚠ Watch off overnight — no sleep data; lower-confidence reading (body battery + HRV only)."
+    out = {"score": corrected, "summary": summary, "sessions": sessions}
+    if low_conf:
+        out["low_confidence"] = True
+    return out
 
 
 # ── WRITE OUTPUT ─────────────────────────────────────────────────────────────
