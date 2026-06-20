@@ -29,8 +29,7 @@ except ImportError:
 try:
     import anthropic
 except ImportError:
-    print("ERROR: pip install anthropic")
-    exit(1)
+    anthropic = None   # readiness path is Claude-free; only coaching emails need it
 
 TODAY     = date.today().isoformat()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -155,17 +154,46 @@ def load_manual_activities(days=7) -> list:
     return [e for e in entries if e.get("date", "") >= cutoff]
 
 
-# ── CLAUDE API ───────────────────────────────────────────────────────────────
+# ── READINESS (deterministic, on-device — no Claude) ─────────────────────────
+# Principle: trust Garmin's SENSORS, distrust Garmin's VERDICTS. We keep the raw
+# overnight measurements (body battery, sleep, HRV, RHR) and rebuild the per-session
+# verdict ourselves, because Garmin (a) over-rates easy Zone-2 runs, (b) UNDER-rates
+# short sprint/interval efforts (low total load → "light aerobic"), and (c) never sees
+# watch-off weights or golf. Runs are classified by HR signature, not Garmin's label.
 
-SYSTEM_PROMPT = """You are a sports science assistant helping an athlete plan their training.
-You understand training load, recovery, and periodisation. You give honest, specific advice
-rather than generic caution. Zone 2 running at correct intensity (65-75% max HR = ~126-145 bpm for this athlete, max HR 193 bpm) is restorative
-and can be done frequently — do NOT treat it like a hard session. VO2 Max intervals carry the
-highest neuromuscular cost (48-72h recovery needed). The athlete doesn't always wear their
-Garmin watch during weights sessions or golf, so these are provided separately. Golf (any format)
-counts as active recovery — it's always a net positive. The athlete is frustrated by Garmin
-mislabelling their sessions (Zone 2 called 'exhausting', VO2 Max called 'light effort') —
-your analysis should make more sense than Garmin's."""
+# Athlete HR model — max HR 193 bpm
+HR_HARD_PEAK = 172   # ~89% max → sprint/VO2/interval signature (catches short efforts Garmin calls "light")
+HR_HARD_AVG  = 165   # sustained near-threshold also counts as hard
+HR_TEMPO_AVG = 150   # ~78% max → tempo/threshold
+LONG_MIN     = 90    # minutes → structural long-run load
+LONG_KM      = 14
+
+def classify_run(a: dict) -> str:
+    """Classify a Garmin cardio activity by HR signature, NOT Garmin's label.
+    Peak HR is what rescues short sprint intervals from being dismissed as 'light'."""
+    avg  = a.get("avg_hr") or 0
+    mx   = a.get("max_hr") or 0
+    dur  = a.get("duration_min") or 0
+    dist = a.get("distance_km") or 0
+    if mx >= HR_HARD_PEAK or avg >= HR_HARD_AVG:
+        return "hard"        # VO2 / sprint / intervals — highest neuromuscular cost
+    if avg >= HR_TEMPO_AVG:
+        return "tempo"
+    if dur >= LONG_MIN or dist >= LONG_KM:
+        return "long"
+    return "easy"            # Zone 2 / restorative — by feel, never penalised
+
+
+def fetch_watchoff_loads(days: int = 3) -> dict:
+    """Pull recent on-course golf rounds + weights from Supabase — the load Garmin
+    NEVER sees (golf = no HR captured; weights = watch off). Used for fatigue penalties."""
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    golf = sb_get("golf_sessions", f"date=gte.{cutoff}&cat=eq.round&select=date,cat")
+    gym  = sb_get("cardio_gym",    f"date=gte.{cutoff}&type=eq.gym&select=date,slot_index,value")
+    weights = [g for g in gym if g.get("slot_index") in (0, 1) and (g.get("value") or 0) >= 1]
+    print(f"  ✓ watch-off loads: {len(golf)} golf round(s), {len(weights)} weights session(s) in last {days}d")
+    return {"golf_rounds": golf, "weights": weights}
+
 
 def format_activities_for_prompt(garmin_acts: list, manual_acts: list) -> str:
     lines = []
@@ -192,105 +220,81 @@ def format_activities_for_prompt(garmin_acts: list, manual_acts: list) -> str:
     return "\n".join(lines)
 
 
-def call_claude(metrics: dict, garmin_acts: list, manual_acts: list) -> dict:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("WARNING: ANTHROPIC_API_KEY not set — using fallback score only")
-        return build_fallback_readiness(metrics)
+def derive_readiness(metrics: dict, garmin_acts: list = None, watchoff: dict = None) -> dict:
+    """DETERMINISTIC readiness — no Claude, runs on-device, private + debuggable.
+    corrected = recovery base (overnight sensors only) − weights penalty − golf penalty.
+    Hard-cardio recency is judged by HR (classify_run), never by Garmin's label."""
+    garmin_acts = garmin_acts or []
+    watchoff    = watchoff or {"golf_rounds": [], "weights": []}
+    today = date.today()
 
-    client = anthropic.Anthropic(api_key=api_key)
-
-    hrv_info = ""
-    if metrics.get("hrv_last_night") and metrics.get("hrv_baseline_low"):
-        hrv_info = f"{metrics['hrv_last_night']} ms (baseline {metrics['hrv_baseline_low']}–{metrics['hrv_baseline_high']} ms, status: {metrics['hrv_status']})"
-    else:
-        hrv_info = str(metrics.get("hrv_status", "unknown"))
-
-    health_block = f"""TODAY: {TODAY} ({date.today().strftime('%A')})
-
-GARMIN HEALTH METRICS (from overnight):
-  Sleep score:    {metrics.get('sleep_score', 'N/A')}/100
-  Sleep duration: {metrics.get('sleep_hours', 'N/A')} hours
-  HRV:            {hrv_info}
-  Body Battery:   {metrics.get('body_battery', 'N/A')}/100  (peak after sleep)
-  Resting HR:     {metrics.get('resting_hr', 'N/A')} bpm
-  Avg stress:     {metrics.get('avg_stress', 'N/A')}/100
-"""
-
-    activities_block = format_activities_for_prompt(garmin_acts, manual_acts)
-
-    user_prompt = f"""{health_block}
-{activities_block}
-
-Based on all the above, provide a readiness analysis.
-
-Session types to assess:
-- Zone 2 (easy aerobic run, 65-75% max HR = ~126-145 bpm — low fatigue, restorative)
-- Long Run (structural load, distance-based fatigue — needs 48-72h)
-- Tempo (lactate threshold, moderate-high cost — needs 36-48h)
-- VO2 Max (high-intensity intervals, highest cost — needs 48-72h, prioritise freshness)
-- Weights (neuromuscular, 48h same muscle group — Garmin doesn't track these)
-- Mobility (always fine — active recovery)
-- Golf (active recovery, walking + low-intensity — always a net positive)
-
-Consider: how recent was each session type? HRV vs baseline? Sleep quality? Body battery?
-Be specific about WHY in each reason (e.g. "VO2 Max 2 days ago + low HRV = poor").
-
-Respond with ONLY valid JSON, no markdown, no commentary:
-{{
-  "score": <integer 0-100>,
-  "summary": "<2-3 sentences: overall readiness + top recommendation for today>",
-  "sessions": {{
-    "Zone 2":   {{"status": "good|caution|poor", "reason": "<concise>"}},
-    "Long Run": {{"status": "good|caution|poor", "reason": "<concise>"}},
-    "Tempo":    {{"status": "good|caution|poor", "reason": "<concise>"}},
-    "VO2 Max":  {{"status": "good|caution|poor", "reason": "<concise>"}},
-    "Weights":  {{"status": "good|caution|poor", "reason": "<concise>"}},
-    "Mobility": {{"status": "good|caution|poor", "reason": "<concise>"}},
-    "Golf":     {{"status": "good|caution|poor", "reason": "<concise>"}}
-  }}
-}}"""
-
-    print("Calling Claude API...")
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
-
-    raw = message.content[0].text.strip()
-    # Strip markdown code fences if Claude adds them despite instructions
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    result = json.loads(raw)
-    print(f"  ✓ Readiness score: {result.get('score')}")
-    return result
-
-
-def build_fallback_readiness(metrics: dict) -> dict:
-    """Simple score when Claude API is unavailable."""
-    score = 50
-    bb = metrics.get("body_battery")
-    ss = metrics.get("sleep_score")
+    # ── base recovery: only what Garmin actually MEASURED overnight (no verdicts) ──
+    score = 50.0
+    bb = metrics.get("body_battery"); ss = metrics.get("sleep_score")
     hrv_map = {"BALANCED": 10, "UNBALANCED": 0, "LOW": -10, "POOR": -15}
-
     if bb is not None: score += (bb - 50) * 0.6
     if ss is not None: score += (ss - 60) * 0.3
     if metrics.get("hrv_status") in hrv_map: score += hrv_map[metrics["hrv_status"]]
-    score = max(0, min(100, round(score)))
+    base = max(0, min(100, round(score)))
 
-    thresholds = {"VO2 Max": 75, "Tempo": 68, "Long Run": 62, "Zone 2": 40, "Weights": 55, "Mobility": 20, "Golf": 0}
+    def days_ago(iso):
+        return (today - date.fromisoformat(iso[:10])).days
+
+    # ── HR-classified hard cardio recency (ignores Garmin's mislabel) ──
+    hard_recent = any(classify_run(a) == "hard" and days_ago(a["date"]) <= 1 for a in garmin_acts)
+
+    # ── watch-off fatigue from Supabase — decaying recency weights ──
+    strength_w = 0.0
+    for w in watchoff.get("weights", []):
+        d = days_ago(w["date"])
+        if 0 <= d <= 2: strength_w = max(strength_w, 1 - d / 3)   # today 1.0 · yest .67 · 2d .33
+    golf_w = 0.0
+    for g in watchoff.get("golf_rounds", []):
+        d = days_ago(g["date"])
+        if 0 <= d <= 1: golf_w = max(golf_w, 1 - d / 2)           # today 1.0 · yest .5
+
+    strength_pen = round(12 * strength_w)
+    golf_pen     = round(8 * golf_w)
+    legs_back_loaded = strength_w > 0 or golf_w > 0
+    corrected = max(0, min(100, base - strength_pen - golf_pen))
+
+    def band(v, good, caution):
+        return "good" if v >= good else "caution" if v >= caution else "poor"
+
     sessions = {}
-    for name, thr in thresholds.items():
-        if score >= thr:          st = "good"
-        elif score >= thr - 15:   st = "caution"
-        else:                     st = "poor"
-        sessions[name] = {"status": st, "reason": "Based on recovery metrics (Claude API unavailable)"}
+    block_hard = hard_recent or legs_back_loaded
+    for disc, good, caution in [("VO2 Max", 75, 60), ("Tempo", 68, 55), ("Long Run", 62, 50)]:
+        st = band(corrected, good, caution)
+        if block_hard and st == "good":
+            st = "caution"
+        why = []
+        if hard_recent:  why.append("hard session (by HR) in last 24h")
+        if strength_w:   why.append("weights still in the legs")
+        if golf_w:       why.append("golf round yesterday (back/legs)")
+        sessions[disc] = {"status": st, "reason": (", ".join(why) or f"recovery {corrected}/100").capitalize()}
 
-    return {"score": score, "summary": "Fallback score based on raw Garmin metrics.", "sessions": sessions}
+    sessions["Zone 2"] = {"status": "good" if corrected >= 40 else "caution",
+                          "reason": "Easy aerobic by feel — restorative; golf/weights don't block it."}
+
+    wdays  = [days_ago(w["date"]) for w in watchoff.get("weights", [])]
+    last_w = min(wdays) if wdays else None
+    if   last_w is not None and last_w < 1: wst = "poor"
+    elif last_w is not None and last_w < 2: wst = "caution"
+    else:                                   wst = band(corrected, 55, 40)
+    sessions["Weights"] = {"status": wst,
+                           "reason": (f"lifted {last_w}d ago" if last_w is not None else f"recovery {corrected}/100")}
+
+    sessions["Mobility"] = {"status": "good",
+                            "reason": "Always beneficial — especially after golf or a hard day."}
+
+    gst = "caution" if golf_w > 0 else band(corrected, 45, 30)
+    sessions["Golf"] = {"status": gst,
+                        "reason": "Aerobic volume + back/leg load — fine unless legs are cooked."}
+
+    summary = (f"Readiness {corrected}/100 — recovery base {base} (body battery/sleep/HRV) "
+               f"− weights {strength_pen} − golf {golf_pen}. Runs judged by HR, not Garmin's label. "
+               f"On-device, no Claude.")
+    return {"score": corrected, "summary": summary, "sessions": sessions}
 
 
 # ── WRITE OUTPUT ─────────────────────────────────────────────────────────────
@@ -673,7 +677,12 @@ def main():
     for a in manual_acts:
         print(f"  {a['date']}: {a['activity']}")
 
-    readiness = call_claude(metrics, garmin_acts, manual_acts)
+    # Readiness = deterministic on-device derivation (no Claude). Watch-off golf/weights
+    # load comes from Supabase (Garmin never sees them); runs classified by HR.
+    print("\nDeriving readiness (on-device)...")
+    watchoff  = fetch_watchoff_loads(days=3)
+    readiness = derive_readiness(metrics, garmin_acts, watchoff)
+    print(f"  ✓ Readiness score: {readiness.get('score')}")
 
     # ── Daily brief → written into garmin_status.js for the app ──
     wstart  = week_start_for(TODAY)
@@ -693,10 +702,15 @@ def main():
         print("\nDone.")
         return
 
-    # Normal morning run: generate brief and embed in garmin_status.js
-    print("\nBuilding daily brief...")
-    brief = build_daily_brief(metrics, garmin_acts, manual_acts, tracker, TODAY, wstart)
-    print(f"\n--- DAILY BRIEF ---\n{brief}\n--- END ---\n")
+    # Coaching brief = a Claude call. Only run it on coaching days (Mon/Thu) to keep the
+    # daily readiness sync $0-API. Plain daily runs write the card with no brief (it still
+    # renders score + per-session lights fine).
+    coaching_day = os.environ.get("SEND_COACHING_EMAIL", "").lower() == "true"
+    brief = ""
+    if coaching_day:
+        print("\nBuilding daily brief (coaching day)...")
+        brief = build_daily_brief(metrics, garmin_acts, manual_acts, tracker, TODAY, wstart)
+        print(f"\n--- DAILY BRIEF ---\n{brief}\n--- END ---\n")
 
     if garmin_ok:
         write_output(metrics, readiness, brief)
@@ -704,7 +718,7 @@ def main():
         print("Skipping garmin_status.js update — no Garmin data to write.")
 
     # Send coaching email on Mon/Thu scheduled runs
-    if os.environ.get("SEND_COACHING_EMAIL", "").lower() == "true":
+    if coaching_day:
         print("\nBuilding golf drill suggestions...")
         drills = build_golf_drills(tracker["rounds"], tracker["sessions"])
         if drills:

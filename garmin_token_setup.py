@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
 """
 garmin_token_setup.py
-Run this ONCE locally to authenticate with Garmin (including MFA).
-It saves the OAuth tokens and prints a JSON string to copy into
-your GitHub repository secret named GARMIN_TOKENS.
+Run this ONCE on James to authenticate with Garmin (including MFA).
+Saves OAuth tokens to ~/.garth — exactly where garmin_sync.py reads them.
+Garmin stops flagging logins from James's stable residential IP, so the
+tokens persist and auto-refresh (no more re-auth-every-few-days like CI).
 
-Usage:
-    pip install garminconnect
-    python garmin_token_setup.py
+Usage (on James):
+    ~/Code/goal-tracker/.venv/bin/python ~/Code/goal-tracker/garmin_token_setup.py
 """
 
 import getpass
-import json
 import os
-import tempfile
 
 try:
     from garminconnect import Garmin
 except ImportError:
-    print("ERROR: garminconnect not installed. Run: pip install garminconnect")
+    print("ERROR: garminconnect not installed in this venv.")
     exit(1)
+
+GARTH_DIR = os.path.expanduser("~/.garth")
+os.makedirs(GARTH_DIR, exist_ok=True)
 
 email    = input("Garmin email: ")
 password = getpass.getpass("Garmin password: ")
@@ -28,29 +29,19 @@ def prompt_mfa():
     return input("MFA code (check email or authenticator app): ")
 
 print("\nLogging in to Garmin Connect...")
-tmpdir = tempfile.mkdtemp()
 try:
     client = Garmin(email=email, password=password, prompt_mfa=prompt_mfa)
-    client.login(tokenstore=tmpdir)
+    client.login(tokenstore=GARTH_DIR)
     print("Login successful.\n")
 except Exception as e:
     print(f"Login failed: {e}")
     exit(1)
 
-token_files = {}
-for fname in os.listdir(tmpdir):
-    fpath = os.path.join(tmpdir, fname)
-    if os.path.isfile(fpath):
-        with open(fpath, "r", encoding="utf-8") as f:
-            token_files[fname] = f.read()
-
-token_json = json.dumps(token_files)
-
-print("=" * 60)
-print("Copy the following string as a GitHub Actions secret")
-print("Secret name: GARMIN_TOKENS")
-print("=" * 60)
-print(token_json)
-print("=" * 60)
-print("\nDone. Tokens are valid for ~90 days.")
-print("Re-run this script when the GitHub Action starts failing with auth errors.")
+# Sanity check: confirm the sync can read tokens back
+try:
+    check = Garmin()
+    check.login(tokenstore=GARTH_DIR)
+    print(f"✓ Tokens saved to {GARTH_DIR} and verified — garmin_sync.py will use them.")
+    print("  Valid ~90 days; James's residential IP keeps them refreshing.")
+except Exception as e:
+    print(f"WARNING: tokens saved but re-read check failed: {e}")

@@ -1,9 +1,10 @@
 name: Garmin Sync
 
 on:
-  schedule:
-    - cron: '0 5 * * 1'   # Monday    07:00 CEST (UTC+2 summer)
-    - cron: '0 5 * * 4'   # Thursday  07:00 CEST
+  # Scheduled runs DISABLED 2026-06-20 — moved to James (run_garmin.sh, daily launchd).
+  # Rationale: CI ran from rotating datacenter IPs → Garmin flagged the logins and
+  # invalidated tokens every few days. James uses Astrid's stable residential IP, and
+  # readiness is now derived on-device (no Claude). Kept manual-only for emergencies.
   workflow_dispatch:
     inputs:
       send_email:
