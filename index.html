@@ -539,13 +539,43 @@ function practiceCardHtml(){
     const isA=d.dkey===practiceDay,has=getSess(d.dkey).length>0;
     h+=`<button class="dbtn ${isA?'on':''} ${d.isToday?'tod':''} ${has?'has':''}" onclick="setPracticeDay('${d.dkey}')"><div style="font-size:12px;font-weight:600">${DAYS[d.dow]}</div><div style="font-size:11px">${d.d.getDate()}.</div><div class="ddot"></div></button>`;
   }
-  h+='</div><div style="font-size:11px;color:var(--mu);margin:2px 0 10px">Tap what you practised — green = done. Number = this week.</div><div class="pills">';
+  h+='</div><div style="font-size:11px;color:var(--mu);margin:2px 0 10px">Tap what you practised — green = done. Then set drill/game + a note below. Number = this week.</div><div class="pills">';
   for(const p of PRACTICE_PILLS){
     const on=done.has(p.id),c=wk[p.id]||0;
     h+=`<button class="ppill ${on?'on':''}" onclick="togglePractice('${p.id}')" title="${p.hint||''}">${p.label}${c?`<span class="pc">${c}</span>`:''}</button>`;
   }
-  h+='</div></div>';
+  h+='</div>';
+  // Per-session detail: drill vs game + free-text "what did you practise?" (→ extra_value)
+  const editable=getSess(practiceDay).map((s,i)=>({s,i})).filter(x=>x.s.cat!=='round');
+  if(editable.length){
+    h+='<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">';
+    for(const {s,i} of editable){
+      const p=PRACTICE_PILLS.find(x=>x.id===s.optId);
+      const name=p?p.label:(s.label||s.optId);
+      const note=(s.ev||'').replace(/"/g,'&quot;');
+      h+=`<div style="display:flex;gap:6px;align-items:center">
+        <span style="flex:0 0 auto;min-width:70px;font-size:12px;font-weight:600">${name}</span>
+        <select onchange="updSess('${practiceDay}',${i},'type',this.value)" style="flex:0 0 auto;font-size:12px">
+          <option value="drill"${s.type==='drill'?' selected':''}>Drill</option>
+          <option value="game"${s.type==='game'?' selected':''}>Game</option>
+        </select>
+        <input type="text" maxlength="120" value="${note}" placeholder="Was geübt? (z.B. 50 Putts 2m)" onchange="updSess('${practiceDay}',${i},'ev',this.value)" style="flex:1;min-width:0;font-size:12px">
+      </div>`;
+    }
+    h+='</div>';
+  }
+  h+='</div>';
   return h;
+}
+
+// Edit a logged practice session in place: drill/game (type) or note (ev).
+function updSess(dkey,idx,field,value){
+  const sess=getSess(dkey);
+  if(!sess[idx])return;
+  if(field==='type')sess[idx].type=value;
+  else if(field==='ev')sess[idx].ev=(value||'').trim();
+  saveSess(dkey,sess);
+  syncGolfSessions(dkey);
 }
 
 // ── GOLF BLOCK (legacy select-based logger; replaced by pills) ─────
