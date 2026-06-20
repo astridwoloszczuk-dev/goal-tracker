@@ -15,7 +15,7 @@ window.GARMIN = {
   },
   "readiness": {
     "score": 85,
-    "summary": "Readiness 85/100 — recovery base 85 (body battery/sleep/HRV) − weights 0 − golf 0. Runs judged by HR, not Garmin's label. On-device, no Claude.",
+    "summary": "Readiness 85/100 — recovery base 85 (body battery/sleep/HRV) − weights 0 − golf 0. Runs judged by HR, not Garmin's label. On-device, no Claude. ⚠ Watch off overnight — no sleep data; lower-confidence reading (body battery + HRV only).",
     "sessions": {
       "VO2 Max": {
         "status": "caution",
@@ -45,6 +45,7 @@ window.GARMIN = {
         "status": "good",
         "reason": "Aerobic volume + back/leg load — fine unless legs are cooked."
       }
-    }
+    },
+    "low_confidence": true
   }
 };
