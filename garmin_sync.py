@@ -33,6 +33,21 @@ except ImportError:
 
 TODAY     = date.today().isoformat()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SENTINEL  = os.path.join(SCRIPT_DIR, ".garmin_done")   # date readiness was finalised (retry mode)
+
+def sentinel_date():
+    try:
+        with open(SENTINEL) as f:
+            return f.read().strip()
+    except Exception:
+        return None
+
+def write_sentinel(d):
+    try:
+        with open(SENTINEL, "w") as f:
+            f.write(d)
+    except Exception:
+        pass
 
 # ── AUTH ─────────────────────────────────────────────────────────────────────
 
@@ -720,8 +735,28 @@ def main():
         brief = build_daily_brief(metrics, garmin_acts, manual_acts, tracker, TODAY, wstart)
         print(f"\n--- DAILY BRIEF ---\n{brief}\n--- END ---\n")
 
+    # ── Watch-sync retry gate (launchd fires this every 30 min through the morning) ──
+    # The watch only uploads last night's sleep when it syncs (Astrid opening the Garmin
+    # app, often ~8am). An early run sees no sleep and would wrongly flag "watch off". In
+    # retry mode we WAIT — don't finalise — until sleep appears, then write once. After
+    # 11:00 we give up waiting and write best-effort (the low-confidence flag handles it).
+    retry     = os.environ.get("GARMIN_RETRY") == "1"
+    force_now = os.environ.get("GARMIN_FORCE") == "1"   # manual "refresh now" override
+    if retry and not force_now:
+        if sentinel_date() == TODAY:
+            print("Readiness already finalised today — nothing to do.")
+            return
+        sleep_ok  = metrics.get("sleep_score") is not None
+        now       = datetime.now()
+        give_up   = (now.hour * 60 + now.minute) >= (11 * 60)   # ≥11:00 → write whatever we have
+        if garmin_ok and not sleep_ok and not give_up:
+            print("Sleep not synced from the watch yet — will retry next run (not writing).")
+            return
+
     if garmin_ok:
         write_output(metrics, readiness, brief)
+        if retry:
+            write_sentinel(TODAY)
     else:
         print("Skipping garmin_status.js update — no Garmin data to write.")
 

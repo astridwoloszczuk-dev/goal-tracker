@@ -1,16 +1,15 @@
 #!/bin/bash
 # Daily Garmin readiness sync on James — deterministic, on-device, no Claude.
-# Pulls overnight metrics via garth, derives per-discipline readiness, writes
-# garmin_status.js, then commits+pushes so the Golf Tracker PWA updates live.
+# Runs every 30 min through the morning (launchd); GARMIN_RETRY=1 makes it WAIT for the
+# watch to sync last night's sleep before finalising, then write once (.garmin_done sentinel).
+# Manual force refresh:  GARMIN_FORCE=1 bash run_garmin.sh
 cd "$HOME/Code/goal-tracker" || exit 1
+export GARMIN_RETRY=1
 PY="$HOME/Code/goal-tracker/.venv/bin/python"
 LOG="$HOME/Code/goal-tracker/garmin_sync.log"
 echo "=== $(date) ===" >> "$LOG"
 
-# The PWA also commits to this repo (activity_log via GitHub API) — rebase first
-# so our push is never rejected. autostash protects any local script edits.
 git pull --rebase --autostash >> "$LOG" 2>&1
-
 "$PY" garmin_sync.py >> "$LOG" 2>&1
 
 # Publish only the generated status file (leave script edits for manual commits)
