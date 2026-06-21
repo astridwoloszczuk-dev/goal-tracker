@@ -3,30 +3,30 @@
 window.GARMIN = {
   "date": "2026-06-21",
   "metrics": {
-    "sleep_score": null,
-    "sleep_hours": null,
-    "hrv_status": null,
-    "hrv_last_night": null,
-    "hrv_baseline_low": null,
-    "hrv_baseline_high": null,
-    "body_battery": 46,
+    "sleep_score": 75,
+    "sleep_hours": 8.2,
+    "hrv_status": "BALANCED",
+    "hrv_last_night": 50,
+    "hrv_baseline_low": 48,
+    "hrv_baseline_high": 63,
+    "body_battery": 73,
     "resting_hr": 55,
-    "avg_stress": 20
+    "avg_stress": 21
   },
   "readiness": {
-    "score": 48,
-    "summary": "Readiness 48/100 — recovery base 48 (body battery/sleep/HRV) − weights 0 − golf 0. Runs judged by HR, not Garmin's label. On-device, no Claude. ⚠ Watch off overnight — no sleep data; lower-confidence reading (body battery + HRV only).",
+    "score": 78,
+    "summary": "Readiness 78/100 — recovery base 78 (body battery/sleep/HRV) − weights 0 − golf 0. Runs judged by HR, not Garmin's label. On-device, no Claude.",
     "sessions": {
       "VO2 Max": {
-        "status": "poor",
+        "status": "caution",
         "reason": "Hard session (by hr) in last 24h"
       },
       "Tempo": {
-        "status": "poor",
+        "status": "caution",
         "reason": "Hard session (by hr) in last 24h"
       },
       "Long Run": {
-        "status": "poor",
+        "status": "caution",
         "reason": "Hard session (by hr) in last 24h"
       },
       "Zone 2": {
@@ -34,8 +34,8 @@ window.GARMIN = {
         "reason": "Easy aerobic by feel — restorative; golf/weights don't block it."
       },
       "Weights": {
-        "status": "caution",
-        "reason": "recovery 48/100"
+        "status": "good",
+        "reason": "recovery 78/100"
       },
       "Mobility": {
         "status": "good",
@@ -45,7 +45,6 @@ window.GARMIN = {
         "status": "good",
         "reason": "Aerobic volume + back/leg load — fine unless legs are cooked."
       }
-    },
-    "low_confidence": true
+    }
   }
 };
