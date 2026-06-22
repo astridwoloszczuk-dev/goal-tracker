@@ -1,3 +1,7 @@
 .garmin_done
 .venv/
 *.log
+coach_plan.json
+nudge_state.json
+coach*.log
+nudge*.log
