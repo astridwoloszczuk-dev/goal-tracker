@@ -265,13 +265,12 @@ async function loadFromSupabase(){
 }
 
 async function syncDayHabits(dkey){
+  // Golf-owned daily habits ONLY (mirror, stretch). protein / water / alcohol are owned by
+  // the diary now — never write them here or the upsert would clobber the diary's values.
   await sbReq('daily_habits','POST',{
     date:dkey,
-    water_glasses:sg('wat_'+dkey)||0,
     mirror:getWbar('mirror',dkey),
-    protein:getWbar('protein',dkey),
     stretch:getWbar('stretch',dkey),
-    alcohol:getWbar('alc',dkey),
   });
 }
 
@@ -937,13 +936,11 @@ function renderWeek(){
   h+=`<div style="font-size:16px;font-weight:700;margin-bottom:10px">${DAYFULL[selDate.getDay()]}, ${selDate.getDate()}.</div>`;
   h+=golfBlockHtml(activeDay);
 
-  // Week bars (same as today)
+  // Stretching is the only daily habit still tracked here. Protein/water/alcohol moved to
+  // the diary; mirror putting is the pill row on the Today tab — both removed to avoid
+  // duplicate trackers (and the risk of overwriting the diary's numbers).
   h+='<div class="card"><div class="ct">Wochenziele</div>';
   h+=wbarHtml('stretch',days,'🧘 Stretching','',2,null);
-  h+=wbarHtml('mirror',days,'⛳ Mirror Putting','',2,null);
-  h+=wbarHtml('protein',days,'🥩 Protein','',2,null);
-  h+=hydrationHtml(days);
-  h+=alcBarHtml(days);
   h+='</div>';
 
   h+='<div class="card"><div class="ct">Fitness</div>';
