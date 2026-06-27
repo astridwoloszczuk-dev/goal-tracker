@@ -678,6 +678,16 @@ def week_start_for(today_str: str) -> str:
     return (d - timedelta(days=d.weekday())).isoformat()
 
 
+HC_GARMIN = "https://hc-ping.com/30cbe4de-4253-416c-9d2d-64fefb1fd300"
+def hc_ping(suffix=""):
+    """healthchecks heartbeat: success when readiness finalised; /fail only when Garmin is unreachable."""
+    try:
+        import urllib.request
+        urllib.request.urlopen(HC_GARMIN + suffix, timeout=10)
+    except Exception:
+        pass
+
+
 def main():
     print(f"\nGarmin Sync — {TODAY}\n")
 
@@ -757,8 +767,10 @@ def main():
         write_output(metrics, readiness, brief)
         if retry:
             write_sentinel(TODAY)
+        hc_ping()                 # success: readiness finalised with data
     else:
         print("Skipping garmin_status.js update — no Garmin data to write.")
+        hc_ping("/fail")          # Garmin unreachable (token expired / API down)
 
     # Send coaching email on Mon/Thu scheduled runs
     if coaching_day:
