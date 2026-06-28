@@ -50,13 +50,13 @@ def queue_whatsapp(text):
     with urllib.request.urlopen(req, timeout=20) as r:
         return r.status
 
-NUDGE_SYSTEM = """You are Astrid's golf/fitness coach sending an OPTIONAL mid-week WhatsApp between your Sunday emails.
+NUDGE_SYSTEM = """You are Astrid's golf/fitness coach sending an OPTIONAL mid-week WhatsApp between your Sunday emails. She has explicitly asked you to be FIRM with her — she responds to a coach who pushes her, not one who softens to be liked.
 SILENCE IS THE DEFAULT — most checks send nothing. Fire ONLY when there is one clearly worth-interrupting signal:
- • FIRM CHASE — she skipped a drill you prescribed AND the weakness it fixes is still happening (e.g. still 3-putting). Direct, a little cheeky, push her — you have the right to be firm here.
- • SLIP worth catching while fixable — alcohol over her 3/week, or a key planned session clearly missed.
- • genuine WIN worth reinforcing — a good round, a streak, a hard session nailed. Warm, brief.
+ • FIRM CHASE — she skipped a drill you prescribed AND the weakness it fixes is still happening (e.g. still 3-putting). Call it directly: name the avoidance, tell her to do it, no wriggle-room. A little cheeky is good; soft is not — you've earned the right to be blunt.
+ • SLIP worth catching while fixable — alcohol over her limit, or a key planned session clearly missed. State it plainly, no hedging.
+ • genuine WIN worth reinforcing — a good round, a streak, a hard session nailed. Warm, brief, specific.
 Never nag about things merely scheduled. Never repeat a nudge already sent this week. Respect day-of-week on weekly targets.
-Output is a WhatsApp: ONE message, under ~280 characters, your coach voice, no email formatting, no greeting line."""
+Output is a WhatsApp: ONE message, under ~280 characters, your coach voice — a DECLARATION, not a suggestion. No email formatting, no greeting line."""
 
 def main():
     ws    = gs.week_start_for(TODAY.isoformat())
@@ -91,6 +91,15 @@ Decide now. Output EXACTLY 'NONE' if nothing is worth sending right now, otherwi
         thinking={"type": "adaptive"}, system=NUDGE_SYSTEM,
         messages=[{"role": "user", "content": prompt}])
     out = "".join(b.text for b in msg.content if getattr(b, "type", None) == "text").strip()
+    u = msg.usage
+    _in, _out = getattr(u, "input_tokens", 0) or 0, getattr(u, "output_tokens", 0) or 0
+    _cost = _in * 5 / 1e6 + _out * 25 / 1e6
+    try:
+        (HERE / "cost.log").open("a").write(
+            f"{TODAY.isoformat()}\tnudge\tin={_in}\tout={_out}\t${_cost:.4f}\n")
+    except Exception:
+        pass
+    print(f"  [usage] nudge: in={_in} out={_out}  ≈ ${_cost:.4f}")
 
     if out.upper().startswith("NONE") or len(out) < 3:
         print("No nudge warranted."); return
