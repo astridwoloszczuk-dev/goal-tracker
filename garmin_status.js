@@ -11,7 +11,7 @@ window.GARMIN = {
     "hrv_baseline_high": 64,
     "body_battery": 84,
     "resting_hr": 53,
-    "avg_stress": 15
+    "avg_stress": 16
   },
   "readiness": {
     "score": 88,
