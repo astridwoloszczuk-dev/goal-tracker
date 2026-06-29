@@ -1081,7 +1081,7 @@ function roundStatsHtml(){
   const f1=v=>v==null?'—':(Math.round(v*10)/10).toFixed(1);
   const sg=v=>v==null?'':((v>0?'+':'')+(Math.round(v*10)/10).toFixed(1));
   const fS=v=>v==null?'—':((v>0?'+':'')+(Math.round(v*10)/10).toFixed(1));
-  const sD=g=>mean(rs.filter(g).filter(x=>x.delta!=null&&x.n>0).map(x=>sc(x.delta,x.n)));
+  const sD=g=>mean(rs.filter(g).filter(x=>x.delta!=null&&x.n>=9).map(x=>sc(x.delta,x.n)));
   const dAll=sD(()=>true),dComp=sD(x=>x.comp),dNorm=sD(x=>!x.comp);
   const M=[
     {l:'Doubles+',g:x=>x.db,bad:1},
@@ -1094,9 +1094,9 @@ function roundStatsHtml(){
     {l:'Up & downs',g:x=>x.ud,bad:0}
   ];
   const rows=M.map(m=>{
-    const C=rs.filter(x=>x.comp&&m.g(x)!=null&&x.n>0).map(x=>sc(m.g(x),x.n));
-    const N=rs.filter(x=>!x.comp&&m.g(x)!=null&&x.n>0).map(x=>sc(m.g(x),x.n));
-    const A=rs.filter(x=>m.g(x)!=null&&x.n>0).map(x=>sc(m.g(x),x.n));
+    const C=rs.filter(x=>x.comp&&m.g(x)!=null&&x.n>=9).map(x=>sc(m.g(x),x.n));
+    const N=rs.filter(x=>!x.comp&&m.g(x)!=null&&x.n>=9).map(x=>sc(m.g(x),x.n));
+    const A=rs.filter(x=>m.g(x)!=null&&x.n>=9).map(x=>sc(m.g(x),x.n));
     const cv=mean(C),nv=mean(N),av=mean(A);
     const delta=(cv!=null&&nv!=null)?cv-nv:null;
     return {l:m.l,bad:m.bad,cv:cv,nv:nv,av:av,delta:delta};
