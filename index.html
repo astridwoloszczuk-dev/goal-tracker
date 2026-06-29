@@ -984,20 +984,38 @@ function selDay(dkey){activeDay=dkey;renderWeek();}
 let rounds=[],editIdx=null;
 
 function deriveRoundStats(hd){
-  if(!hd||!hd.length)return{n:0,delta:null,gir:null,fw:null,ud:null,p3:null,db:null,b5:null,pen:null,bs:null};
+  const Z={n:0,delta:null,gir:null,fw:null,ud:null,p3:null,db:null,b5:null,pen:null,bs:null,drvS:null,drvX:null,appM:null,appW:null,shC:null,putts:null,penStk:null,bunk:null};
+  if(!hd||!hd.length)return Z;
   const played=hd.filter(h=>h.par!=null&&h.par!==''&&h.score!=null&&h.score!=='');
   const n=played.length;
-  if(!n)return{n:0,delta:null,gir:null,fw:null,ud:null,p3:null,db:null,b5:null,pen:null,bs:null};
+  if(!n)return Z;
+  const isNew=played.some(h=>h.drive!==undefined||h.app!==undefined||h.short!==undefined||h.trbl!==undefined||h.putts!==undefined);
   const delta=played.reduce((s,h)=>s+(Number(h.score)-Number(h.par)),0);
   const gir=played.filter(h=>h.gir).length;
-  const fw=played.filter(h=>h.fw&&Number(h.par)!==3).length;
-  const ud=played.filter(h=>h.ud&&!h.gir).length;
-  const p3=played.filter(h=>h.p3).length;
   const db=played.filter(h=>Number(h.score)>=Number(h.par)+2).length;
   const b5=played.filter(h=>Number(h.par)===5&&Number(h.score)>=6).length;
-  const pen=played.filter(h=>h.p&&String(h.p).trim()).length;   // holes with a penalty noted
-  const bs=played.filter(h=>h.b7).length;
-  return{n,delta,gir,fw,ud,p3,db,b5,pen,bs};
+  const o={...Z,n,delta,gir,db,b5};
+  if(isNew){
+    const dv=h=>String(h.drive||'').toLowerCase(),ap=h=>String(h.app||'').toLowerCase(),sh=h=>String(h.short||'').toLowerCase(),tr=h=>String(h.trbl||'').trim().toUpperCase();
+    o.drvS=played.filter(h=>dv(h)==='s').length;
+    o.drvX=played.filter(h=>dv(h)==='x').length;
+    o.appM=played.filter(h=>ap(h)==='m').length;
+    o.appW=played.filter(h=>ap(h)==='w').length;
+    o.shC=played.filter(h=>sh(h)==='c').length;
+    o.ud=played.filter(h=>['ud','u','✓'].includes(sh(h))).length;
+    o.putts=played.reduce((s,h)=>s+(Number(h.putts)||0),0)||null;
+    o.p3=played.filter(h=>Number(h.putts)>=3).length;
+    o.penStk=played.filter(h=>['W','O','U'].includes(tr(h))).length;
+    o.bunk=played.filter(h=>['FB','GB'].includes(tr(h))).length;
+    o.pen=o.penStk;
+  }else{
+    o.fw=played.filter(h=>h.fw&&Number(h.par)!==3).length;
+    o.ud=played.filter(h=>h.ud&&!h.gir).length;
+    o.p3=played.filter(h=>h.p3).length;
+    o.pen=played.filter(h=>h.p&&String(h.p).trim()).length;
+    o.bs=played.filter(h=>h.b7).length;
+  }
+  return o;
 }
 
 function getRoundStats(r){
@@ -1016,7 +1034,8 @@ function getRoundStats(r){
     db:nn(r.db)?Number(r.db):null,
     b5:nn(r.b5)?Number(r.b5):null,
     pen:nn(r.pen)?Number(r.pen):null,
-    bs:nn(r.bs)?Number(r.bs):null
+    bs:nn(r.bs)?Number(r.bs):null,
+    drvS:null,drvX:null,appM:null,appW:null,shC:null,putts:null,penStk:null,bunk:null
   };
 }
 
@@ -1028,14 +1047,14 @@ function holeBoxHtml(i){
       <div class="hole-nf"><span class="hole-lbl">Score</span><input type="number" id="hs_${i}" min="1" max="15" placeholder="—" class="hole-num"></div>
     </div>
     <div class="hole-r2">
-      <label class="hole-toggle good"><input type="checkbox" id="hfw_${i}"> FW</label>
-      <label class="hole-toggle good"><input type="checkbox" id="hgir_${i}" onchange="onHoleGir(${i})"> GIR</label>
-      <div id="hud_wrap_${i}" style="display:inline"><label class="hole-toggle good"><input type="checkbox" id="hud_${i}"> U&amp;D</label></div>
+      <div class="hole-nf" style="flex:1"><span class="hole-lbl">Drive ✓/s/x</span><input type="text" id="hdrive_${i}" maxlength="1" placeholder="—" class="hole-num" style="text-align:center"></div>
+      <label class="hole-toggle good"><input type="checkbox" id="hgir_${i}"> GIR</label>
+      <div class="hole-nf" style="flex:1"><span class="hole-lbl">App ✓/m/w</span><input type="text" id="happ_${i}" maxlength="1" placeholder="—" class="hole-num" style="text-align:center"></div>
     </div>
     <div class="hole-r3">
-      <label class="hole-toggle bad"><input type="checkbox" id="h3p_${i}"> 3P</label>
-      <label class="hole-toggle bad"><input type="checkbox" id="hb7_${i}"> B7</label>
-      <div class="hole-nf" style="flex:1"><span class="hole-lbl">P</span><input type="text" id="hpen_${i}" maxlength="6" placeholder="—" class="hole-num" style="text-transform:uppercase" title="Penalty: W=water, U=unplayable, O=OB, FB=fairway bunker, GB=greenside bunker"></div>
+      <div class="hole-nf" style="flex:1"><span class="hole-lbl">Short ✓/c/–</span><input type="text" id="hshort_${i}" maxlength="1" placeholder="—" class="hole-num" style="text-align:center"></div>
+      <div class="hole-nf"><span class="hole-lbl">Putts</span><input type="number" id="hputts_${i}" min="0" max="9" placeholder="—" class="hole-num"></div>
+      <div class="hole-nf" style="flex:1"><span class="hole-lbl">Trbl</span><input type="text" id="htrbl_${i}" maxlength="2" placeholder="—" class="hole-num" style="text-transform:uppercase;text-align:center" title="W water · O OB · U unplayable (stroke) · FB/GB bunker (no stroke)"></div>
     </div>
   </div>`;
 }
@@ -1236,13 +1255,13 @@ function renderRounds(){
         hd.forEach((hdata,i)=>{
           if(el('hp_'+i))el('hp_'+i).value=hdata.par||'';
           if(el('hs_'+i))el('hs_'+i).value=hdata.score||'';
-          if(el('hfw_'+i))el('hfw_'+i).checked=!!hdata.fw;
+          if(el('hdrive_'+i))el('hdrive_'+i).value=hdata.drive||'';
           if(el('hgir_'+i))el('hgir_'+i).checked=!!hdata.gir;
-          if(el('hud_'+i))el('hud_'+i).checked=!!hdata.ud;
-          if(el('h3p_'+i))el('h3p_'+i).checked=!!hdata.p3;
-          if(el('hb7_'+i))el('hb7_'+i).checked=!!hdata.b7;
-          if(el('hpen_'+i))el('hpen_'+i).value=hdata.p||'';
-          onHolePar(i);onHoleGir(i);
+          if(el('happ_'+i))el('happ_'+i).value=hdata.app||'';
+          if(el('hshort_'+i))el('hshort_'+i).value=hdata.short||'';
+          if(el('hputts_'+i))el('hputts_'+i).value=hdata.putts!=null?hdata.putts:'';
+          if(el('htrbl_'+i))el('htrbl_'+i).value=hdata.trbl||'';
+          onHolePar(i);
         });
       },80);
     }
@@ -1363,21 +1382,22 @@ For each hole return:
 - hole: number 1-18
 - par: 3, 4 or 5 (null if unreadable)
 - score: strokes played (integer, null if blank)
-- fw: fairway hit marked? (tick or cross — always false/null for par 3, no fairway)
-- gir: green in regulation marked? (tick or cross — true/false)
-- ud: up & down marked? (tick or cross — only relevant when no GIR — true/false)
-- p3: 3-putt marked? (tick OR cross — crosses count as true — true/false)
-- b7: B7 marked? (bogey from within 7-iron distance without saving U&D — tick OR cross — true/false)
-- p: penalty letters written in the Penalty (P) column — e.g. W (water), U (unplayable), O (out of bounds), FB (fairway bunker), GB (greenside bunker). Return the letters exactly as a short string, or "" if none.
+- drive: Drive cell — "ok" for a tick/✓ (good drive), "s" for s, "x" for x, "" if blank (par 3s usually blank)
+- gir: green in regulation — true if the GIR cell is ticked, else false
+- app: App cell — "ok" for ✓, "m" for m, "w" for w, "" if blank
+- short: Short cell — "ud" for a tick/✓ (up&down), "c" for c, "miss" for a dash/–, "" if blank
+- putts: number of putts written (integer, null if blank)
+- trbl: Trbl cell letters exactly (W, O, U, FB or GB), or "" if blank
 
 Also extract:
 - date: "YYYY-MM-DD" format or null
 - course: course name or null
-- comp: competitive checkbox ticked? (true/false)
+- comp: Comp checkbox ticked? (true/false)
+- practice: Pract checkbox ticked? (true/false)
 - notes: any written notes or null
 
 Return ONLY valid JSON, no markdown:
-{"date":null,"course":null,"comp":false,"notes":null,"holes":[{"hole":1,"par":4,"score":5,"fw":true,"gir":false,"ud":true,"p3":false,"b7":false,"p":""}]}`});
+{"date":null,"course":null,"comp":false,"practice":false,"notes":null,"holes":[{"hole":1,"par":4,"score":5,"drive":"ok","gir":false,"app":"m","short":"ud","putts":2,"trbl":""}]}`});
 
   const resp=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
@@ -1416,13 +1436,13 @@ function fillRoundForm(data){
     if(idx==null||idx<0||idx>=18)return;
     if(el('hp_'+idx))el('hp_'+idx).value=h.par!=null?h.par:'';
     if(el('hs_'+idx))el('hs_'+idx).value=h.score!=null?h.score:'';
-    if(el('hfw_'+idx))el('hfw_'+idx).checked=!!h.fw;
+    if(el('hdrive_'+idx))el('hdrive_'+idx).value=h.drive||'';
     if(el('hgir_'+idx))el('hgir_'+idx).checked=!!h.gir;
-    if(el('hud_'+idx))el('hud_'+idx).checked=!!h.ud;
-    if(el('h3p_'+idx))el('h3p_'+idx).checked=!!h.p3;
-    if(el('hb7_'+idx))el('hb7_'+idx).checked=!!h.b7;
-    if(el('hpen_'+idx))el('hpen_'+idx).value=h.p||'';
-    onHolePar(idx);onHoleGir(idx);
+    if(el('happ_'+idx))el('happ_'+idx).value=h.app||'';
+    if(el('hshort_'+idx))el('hshort_'+idx).value=h.short||'';
+    if(el('hputts_'+idx))el('hputts_'+idx).value=h.putts!=null?h.putts:'';
+    if(el('htrbl_'+idx))el('htrbl_'+idx).value=h.trbl||'';
+    onHolePar(idx);
   });
 }
 
@@ -1432,12 +1452,12 @@ function subRound(){
   const holesData=Array.from({length:18},(_,i)=>({
     par:el('hp_'+i)?el('hp_'+i).value:'',
     score:el('hs_'+i)?el('hs_'+i).value:'',
-    fw:el('hfw_'+i)?el('hfw_'+i).checked:false,
+    drive:el('hdrive_'+i)?el('hdrive_'+i).value.trim().toLowerCase():'',
     gir:el('hgir_'+i)?el('hgir_'+i).checked:false,
-    ud:el('hud_'+i)?el('hud_'+i).checked:false,
-    p3:el('h3p_'+i)?el('h3p_'+i).checked:false,
-    b7:el('hb7_'+i)?el('hb7_'+i).checked:false,
-    p:el('hpen_'+i)?el('hpen_'+i).value.trim().toUpperCase():'',
+    app:el('happ_'+i)?el('happ_'+i).value.trim().toLowerCase():'',
+    short:el('hshort_'+i)?el('hshort_'+i).value.trim().toLowerCase():'',
+    putts:el('hputts_'+i)&&el('hputts_'+i).value!==''?Number(el('hputts_'+i).value):null,
+    trbl:el('htrbl_'+i)?el('htrbl_'+i).value.trim().toUpperCase():'',
   }));
   const badHoles=holesData.filter(h=>h.score!==''&&(h.par===''||h.par==null));
   if(badHoles.length>0){
