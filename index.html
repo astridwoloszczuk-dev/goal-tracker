@@ -1074,19 +1074,60 @@ let scanFiles=[null,null];    // [{base64,mimeType}, null] — index 0=front9, 1
 let scanPreviews=[null,null]; // [dataURL, null]
 
 function roundStatsHtml(){
-  const sc18=(v,n)=>v!==null&&n>0?v*18/n:null;
-  const allStats=rounds.map(r=>getRoundStats(r));
-  const allD=allStats.filter(s=>s.delta!==null&&s.n>0).map(s=>sc18(s.delta,s.n));
-  const comD=rounds.map((r,i)=>r.comp?sc18(allStats[i].delta,allStats[i].n):null).filter(v=>v!==null);
-  const girA=allStats.filter(s=>s.gir!==null&&s.n>0).map(s=>sc18(s.gir,s.n));
-  const avg=arr=>arr.length?(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1):null;
-  const avgD=avg(allD),avgC=avg(comD),avgG=avg(girA);
   if(!rounds.length)return'';
-  return`<div class="mgrid">
-    <div class="mc"><div class="mv">${avgD!==null?(Number(avgD)>0?'+':'')+Number(avgD).toFixed(1):'—'}</div><div class="ml">Ø Par /18</div></div>
-    <div class="mc"><div class="mv">${avgC!==null?(Number(avgC)>0?'+':'')+Number(avgC).toFixed(1):'—'}</div><div class="ml">Ø Comp /18</div></div>
-    <div class="mc"><div class="mv">${avgG?Number(avgG).toFixed(1):'—'}</div><div class="ml">Ø GIR /18</div></div>
+  const sc=(v,n)=>(v!=null&&n>0)?v*18/n:null;
+  const rs=rounds.map(r=>{const s=getRoundStats(r);return {...s,comp:!!r.comp};});
+  const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  const f1=v=>v==null?'—':(Math.round(v*10)/10).toFixed(1);
+  const sg=v=>v==null?'':((v>0?'+':'')+(Math.round(v*10)/10).toFixed(1));
+  const fS=v=>v==null?'—':((v>0?'+':'')+(Math.round(v*10)/10).toFixed(1));
+  const sD=g=>mean(rs.filter(g).filter(x=>x.delta!=null&&x.n>0).map(x=>sc(x.delta,x.n)));
+  const dAll=sD(()=>true),dComp=sD(x=>x.comp),dNorm=sD(x=>!x.comp);
+  const M=[
+    {l:'Doubles+',g:x=>x.db,bad:1},
+    {l:'3-putts',g:x=>x.p3,bad:1},
+    {l:'Penalties',g:x=>x.penStk!=null?x.penStk:x.pen,bad:1},
+    {l:'Drives lost',g:x=>x.drvX,bad:1},
+    {l:'App faults',g:x=>(x.appM!=null||x.appW!=null)?((x.appM||0)+(x.appW||0)):null,bad:1},
+    {l:'Short chokes',g:x=>x.shC,bad:1},
+    {l:'GIR',g:x=>x.gir,bad:0},
+    {l:'Up & downs',g:x=>x.ud,bad:0}
+  ];
+  const rows=M.map(m=>{
+    const C=rs.filter(x=>x.comp&&m.g(x)!=null&&x.n>0).map(x=>sc(m.g(x),x.n));
+    const N=rs.filter(x=>!x.comp&&m.g(x)!=null&&x.n>0).map(x=>sc(m.g(x),x.n));
+    const A=rs.filter(x=>m.g(x)!=null&&x.n>0).map(x=>sc(m.g(x),x.n));
+    const cv=mean(C),nv=mean(N),av=mean(A);
+    const delta=(cv!=null&&nv!=null)?cv-nv:null;
+    return {l:m.l,bad:m.bad,cv:cv,nv:nv,av:av,delta:delta};
+  }).filter(r=>r.av!=null);
+  const bad=rows.filter(r=>r.bad), good=rows.filter(r=>!r.bad);
+  const workOn=bad.filter(r=>r.delta!=null).sort((a,b)=>b.delta-a.delta)[0]||bad.slice().sort((a,b)=>b.av-a.av)[0];
+  const resilient=bad.filter(r=>r.delta!=null&&r.delta<=0.3).sort((a,b)=>a.delta-b.delta)[0];
+  const strong=good.slice().sort((a,b)=>b.av-a.av)[0];
+  const carrot=resilient||strong;
+  let h=`<div class="mgrid">
+    <div class="mc"><div class="mv">${fS(dAll)}</div><div class="ml">Ø /18</div></div>
+    <div class="mc"><div class="mv">${fS(dComp)}</div><div class="ml">Ø Comp /18</div></div>
+    <div class="mc"><div class="mv">${fS(dNorm)}</div><div class="ml">Ø Normal /18</div></div>
   </div>`;
+  if(workOn){
+    const sub=workOn.delta!=null?`${f1(workOn.nv)} normal → ${f1(workOn.cv)} comp · ${sg(workOn.delta)} under pressure`:`${f1(workOn.av)} per 18`;
+    h+=`<div style="margin-top:14px;padding:11px 13px;border:1px solid rgba(220,38,38,.4);background:rgba(220,38,38,.08);border-radius:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#dc2626;margin-bottom:3px">🎯 Work on</div><div style="font-size:15px;font-weight:700">${workOn.l}</div><div style="font-size:12px;color:var(--mu);margin-top:2px">${sub}</div></div>`;
+  }
+  if(carrot){
+    const sub=carrot.bad?`stays steady under a card · ${sg(carrot.delta)} comp`:`${f1(carrot.av)} per 18`;
+    h+=`<div style="margin-top:8px;padding:11px 13px;border:1px solid rgba(22,163,74,.4);background:rgba(22,163,74,.08);border-radius:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#16a34a;margin-bottom:3px">💪 Doing well</div><div style="font-size:15px;font-weight:700">${carrot.l}</div><div style="font-size:12px;color:var(--mu);margin-top:2px">${sub}</div></div>`;
+  }
+  h+=`<div style="margin-top:14px;font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);margin-bottom:6px">Per 18 — normal · comp · Δ</div><div style="display:grid;grid-template-columns:1fr auto auto auto;gap:5px 12px;font-size:13px;align-items:center">`;
+  rows.forEach(r=>{
+    let dc='var(--mu)';
+    if(r.delta!=null){const worse=r.bad?(r.delta>0.2):(r.delta<-0.2);const better=r.bad?(r.delta<-0.2):(r.delta>0.2);dc=worse?'#dc2626':(better?'#16a34a':'var(--mu)');}
+    h+=`<div>${r.l}</div><div style="text-align:right;font-variant-numeric:tabular-nums">${f1(r.nv)}</div><div style="text-align:right;font-variant-numeric:tabular-nums">${f1(r.cv)}</div><div style="text-align:right;font-variant-numeric:tabular-nums;color:${dc}">${r.delta==null?'—':sg(r.delta)}</div>`;
+  });
+  h+=`</div>`;
+  if(!rows.some(r=>r.l==='Drives lost'||r.l==='App faults'||r.l==='Short chokes'))h+=`<div style="margin-top:8px;font-size:11px;color:var(--mu)">Drive / App / Short attribution fills in as you log rounds on the new card.</div>`;
+  return h;
 }
 
 // ── ON-COURSE-PRACTICE FOCUS PICKER ──────────────────────────────
