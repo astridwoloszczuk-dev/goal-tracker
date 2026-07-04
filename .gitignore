@@ -16,3 +16,4 @@ activity_log.json
 requirements.txt
 *.bak*
 .github/
+booked_summary.txt
