@@ -5,3 +5,14 @@ coach_plan.json
 nudge_state.json
 coach*.log
 nudge*.log
+.env
+
+# backend lives on James only — never in this public Pages repo
+*.py
+__pycache__/
+goals.txt
+run_*.sh
+activity_log.json
+requirements.txt
+*.bak*
+.github/
