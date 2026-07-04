@@ -984,7 +984,7 @@ function selDay(dkey){activeDay=dkey;renderWeek();}
 let rounds=[],editIdx=null;
 
 function deriveRoundStats(hd){
-  const Z={n:0,delta:null,gir:null,fw:null,ud:null,p3:null,db:null,b5:null,pen:null,bs:null,drvS:null,drvX:null,appM:null,appW:null,shC:null,putts:null,penStk:null,bunk:null};
+  const Z={n:0,delta:null,gir:null,fw:null,ud:null,p3:null,db:null,b5:null,pen:null,bs:null,drvS:null,drvX:null,appM:null,appW:null,appX:null,shC:null,putts:null,penStk:null,bunk:null,hero:null};
   if(!hd||!hd.length)return Z;
   const played=hd.filter(h=>h.par!=null&&h.par!==''&&h.score!=null&&h.score!=='');
   const n=played.length;
@@ -1001,8 +1001,13 @@ function deriveRoundStats(hd){
     o.drvX=played.filter(h=>dv(h)==='x').length;
     o.appM=played.filter(h=>ap(h)==='m').length;
     o.appW=played.filter(h=>ap(h)==='w').length;
+    o.appX=played.filter(h=>ap(h)==='x').length;
     o.shC=played.filter(h=>sh(h)==='c').length;
-    o.ud=played.filter(h=>['ud','u','✓'].includes(sh(h))).length;
+    // Fault-only card (2026-07-04): a successful save is DERIVED (missed green, still
+    // par or better = scrambled); explicit ✓/ud entries from earlier cards still count.
+    o.ud=played.filter(h=>!h.gir&&(['ud','u','✓'].includes(sh(h))||Number(h.score)<=Number(h.par))).length;
+    // hero-shot tell: green-attack died AND a penalty stroke on the same hole
+    o.hero=played.filter(h=>ap(h)==='x'&&['W','O','U'].includes(tr(h))).length;
     o.putts=played.reduce((s,h)=>s+(Number(h.putts)||0),0)||null;
     o.p3=played.filter(h=>Number(h.putts)>=3).length;
     o.penStk=played.filter(h=>['W','O','U'].includes(tr(h))).length;
@@ -1035,7 +1040,7 @@ function getRoundStats(r){
     b5:nn(r.b5)?Number(r.b5):null,
     pen:nn(r.pen)?Number(r.pen):null,
     bs:nn(r.bs)?Number(r.bs):null,
-    drvS:null,drvX:null,appM:null,appW:null,shC:null,putts:null,penStk:null,bunk:null
+    drvS:null,drvX:null,appM:null,appW:null,appX:null,shC:null,putts:null,penStk:null,bunk:null,hero:null
   };
 }
 
@@ -1047,12 +1052,12 @@ function holeBoxHtml(i){
       <div class="hole-nf"><span class="hole-lbl">Score</span><input type="number" id="hs_${i}" min="1" max="15" placeholder="—" class="hole-num"></div>
     </div>
     <div class="hole-r2">
-      <div class="hole-nf" style="flex:1"><span class="hole-lbl">Drive ✓/s/x</span><input type="text" id="hdrive_${i}" maxlength="1" placeholder="—" class="hole-num" style="text-align:center"></div>
+      <div class="hole-nf" style="flex:1"><span class="hole-lbl">Drive s/x</span><input type="text" id="hdrive_${i}" maxlength="1" placeholder="—" class="hole-num" style="text-align:center" title="blank = fine · s advantage lost · x green gone"></div>
       <label class="hole-toggle good"><input type="checkbox" id="hgir_${i}"> GIR</label>
-      <div class="hole-nf" style="flex:1"><span class="hole-lbl">App ✓/m/w</span><input type="text" id="happ_${i}" maxlength="1" placeholder="—" class="hole-num" style="text-align:center"></div>
+      <div class="hole-nf" style="flex:1"><span class="hole-lbl">App m/w/x</span><input type="text" id="happ_${i}" maxlength="1" placeholder="—" class="hole-num" style="text-align:center" title="blank = fine · m scoring-club miss · w wedge wrong side · x dead, any club"></div>
     </div>
     <div class="hole-r3">
-      <div class="hole-nf" style="flex:1"><span class="hole-lbl">Short ✓/c/–</span><input type="text" id="hshort_${i}" maxlength="1" placeholder="—" class="hole-num" style="text-align:center"></div>
+      <div class="hole-nf" style="flex:1"><span class="hole-lbl">Short c</span><input type="text" id="hshort_${i}" maxlength="1" placeholder="—" class="hole-num" style="text-align:center" title="blank = fine (saves are derived) · c choked a makeable save"></div>
       <div class="hole-nf"><span class="hole-lbl">Putts</span><input type="number" id="hputts_${i}" min="0" max="9" placeholder="—" class="hole-num"></div>
       <div class="hole-nf" style="flex:1"><span class="hole-lbl">Trbl</span><input type="text" id="htrbl_${i}" maxlength="2" placeholder="—" class="hole-num" style="text-transform:uppercase;text-align:center" title="W water · O OB · U unplayable (stroke) · FB/GB bunker (no stroke)"></div>
     </div>
@@ -1088,7 +1093,7 @@ function roundStatsHtml(){
     {l:'3-putts',g:x=>x.p3,bad:1},
     {l:'Penalties',g:x=>x.penStk!=null?x.penStk:x.pen,bad:1},
     {l:'Drives lost',g:x=>x.drvX,bad:1},
-    {l:'App faults',g:x=>(x.appM!=null||x.appW!=null)?((x.appM||0)+(x.appW||0)):null,bad:1},
+    {l:'App faults',g:x=>(x.appM!=null||x.appW!=null||x.appX!=null)?((x.appM||0)+(x.appW||0)+(x.appX||0)):null,bad:1},
     {l:'Short chokes',g:x=>x.shC,bad:1},
     {l:'GIR',g:x=>x.gir,bad:0},
     {l:'Up & downs',g:x=>x.ud,bad:0}
@@ -1417,14 +1422,16 @@ async function analyzeScorecard(images,apiKey){
   });
   content.push({type:'text',text:`This is a handwritten golf scorecard. Extract all data carefully.
 
+This card is FAULT-ONLY: blank fault cells mean "fine, no fault" (that is normal and expected on most holes) — a blank is NOT missing data as long as the hole has a score.
+
 For each hole return:
 - hole: number 1-18
 - par: 3, 4 or 5 (null if unreadable)
 - score: strokes played (integer, null if blank)
-- drive: Drive cell — "ok" for a tick/✓ (good drive), "s" for s, "x" for x, "" if blank (par 3s usually blank)
+- drive: Drive cell — "s" for s, "x" for x, "" if blank (blank = good drive; par 3s always blank). A stray tick/✓ also means "" .
 - gir: green in regulation — true if the GIR cell is ticked, else false
-- app: App cell — "ok" for ✓, "m" for m, "w" for w, "" if blank
-- short: Short cell — "ud" for a tick/✓ (up&down), "c" for c, "miss" for a dash/–, "" if blank
+- app: App cell — "m" for m, "w" for w, "x" for x, "" if blank (blank = fine). A stray tick/✓ also means "".
+- short: Short cell — "c" for c, "" if blank (blank = fine; saves are derived from score). A stray tick/✓ or dash also means "".
 - putts: number of putts written (integer, null if blank)
 - trbl: Trbl cell letters exactly (W, O, U, FB or GB), or "" if blank
 
@@ -1436,7 +1443,7 @@ Also extract:
 - notes: any written notes or null
 
 Return ONLY valid JSON, no markdown:
-{"date":null,"course":null,"comp":false,"practice":false,"notes":null,"holes":[{"hole":1,"par":4,"score":5,"drive":"ok","gir":false,"app":"m","short":"ud","putts":2,"trbl":""}]}`});
+{"date":null,"course":null,"comp":false,"practice":false,"notes":null,"holes":[{"hole":1,"par":4,"score":5,"drive":"","gir":false,"app":"m","short":"","putts":2,"trbl":""}]}`});
 
   const resp=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
