@@ -8,9 +8,6 @@
 @page { size: A4 portrait; margin: 0; }
 body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000; }
 
-.print-note { font-size: 11px; color: #555; padding: 8mm 10mm 4mm; line-height: 1.7; }
-@media print { .print-note { display: none; } }
-
 /* A4 = 2×2 grid of A4-quarter CELLS (cut lines at 105mm / 148.5mm).
    The CARD inside each cell is smaller + centred, leaving a safe gutter
    at the page edges so nothing falls in the printer's dead zone. */
@@ -25,7 +22,7 @@ body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000
 }
 .page:last-child { page-break-after: auto; }
 
-.card { width: 93mm; height: 136mm; padding: 2.5mm 3mm; border: 0.4pt solid #ccc; display: flex; flex-direction: column; overflow: hidden; }
+.card { width: 93mm; height: 138mm; padding: 2.5mm 3mm; border: 0.4pt solid #ccc; display: flex; flex-direction: column; overflow: hidden; }
 
 /* FRONT HEADER */
 .front-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2mm; padding-bottom: 1.5mm; border-bottom: 1pt solid #000; flex-shrink: 0; }
@@ -73,8 +70,8 @@ body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000
 .notes-line-rule { border-bottom: 0.4pt solid #bbb; height: 0; }
 
 /* LEGEND (front) */
-.legend { border-top: 0.3pt solid #ddd; padding-top: 1.2mm; margin-top: 1.5mm; font-size: 4.3pt; color: #555; line-height: 1.55; flex-shrink: 0; }
-.legend > div { margin-bottom: 0.6mm; }
+.legend { border-top: 0.3pt solid #ddd; padding-top: 1.2mm; margin-top: 1.5mm; font-size: 4.2pt; color: #555; line-height: 1.45; flex-shrink: 0; }
+.legend > div { margin-bottom: 0.5mm; }
 .legend b { color: #000; }
 .lg.green { color: #15803d; }
 .lg.red   { color: #b91c1c; }
@@ -83,10 +80,6 @@ body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000
 </style>
 </head>
 <body>
-
-<div class="print-note">
-  <b>Print instructions:</b> Print Page 1 (Front 9). Return the same sheet to the printer and print Page 2 (Back 9) on the reverse. Cut into 4 equal quarters — each piece is a complete double-sided scorecard. All 4 cards per page are identical, so alignment doesn't matter. (If anything still clips at the edge, set the browser print dialog to "Fit to page" / scale 100% and margins "Default".)
-</div>
 
 <script>
 const COURSE_PARS = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
@@ -126,10 +119,9 @@ function colHeaders() {
 function legend() {
   return `
     <div class="legend">
-      <div><b>BLANK = FINE — mark only faults.</b> &nbsp;<b>Drive</b> <b>s</b> advantage lost · <b>x</b> green gone (x + empty Trbl = obstructed, no penalty) &nbsp;|&nbsp; <b>GIR</b> <span class="lg green">✓</span> green hit</div>
-      <div><b>App</b> = all tee→green shots (par 3: tee · par 5: 2nd+3rd) — record the worst (x&gt;m&gt;w): <b>m</b> scoring-club miss (7i–W) · <b>w</b> wedge wrong side · <b>x</b> dead, any club</div>
-      <div><b>Short</b> <b>c</b> choked a makeable save — that's all; saves are derived from score &nbsp;|&nbsp; <b>Putts</b> count</div>
-      <div><b>Trbl</b> <span class="lg red">W</span> water · <span class="lg red">O</span> OB · <span class="lg red">U</span> unplayable <b>= stroke</b> · FB / GB bunker <b>= no stroke</b></div>
+      <div><b>BLANK = FINE — mark only faults.</b> &nbsp;<b>Drive</b> <b>s</b> advantage lost · <b>x</b> green gone (x, no Trbl = obstructed)</div>
+      <div><b>App</b> = all tee→green shots (P3: tee · P5: 2nd+3rd), worst counts: <b>m</b> scoring-club miss (7i–W) · <b>w</b> wedge wrong side · <b>x</b> dead, any club</div>
+      <div><b>Short</b> <b>c</b> choked a makeable save &nbsp;·&nbsp; <b>Putts</b> count &nbsp;·&nbsp; <b>Trbl</b> <span class="lg red">W</span> water · <span class="lg red">O</span> OB · <span class="lg red">U</span> unplayable <b>= stroke</b> · FB/GB bunker <b>= no stroke</b></div>
     </div>`;
 }
 
