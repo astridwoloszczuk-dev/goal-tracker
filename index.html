@@ -262,6 +262,8 @@ async function loadFromSupabase(){
   }
   for(const[date,list]of Object.entries(sessMap))ss('s_'+date,list);
   for(const v of vacations)ss('vac_'+v.week_start,true);
+  const wnotes=await sbGet('weekly_notes?week_start=eq.'+dk(wmon(new Date())));
+  ss('coach_note',wnotes.length?(wnotes[0].note||''):'');
 }
 
 async function syncDayHabits(dkey){
@@ -729,6 +731,28 @@ function tournamentCountdownHtml(){
 }
 
 // ── TODAY ─────────────────────────────────────────────────────────
+// ── Coach note: ONE free-text note per week, editable all week. The Sunday
+// coach reads it as context (drill details, cut-short sessions, anything the
+// data can't see) — and is instructed to call out excuse-drift, not absorb it.
+function escNote(t){const d=document.createElement('div');d.textContent=t||'';return d.innerHTML;}
+function coachNoteHtml(){
+  const note=sg('coach_note')||'';
+  return `<div class="card" style="padding:12px 16px">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--mu);margin-bottom:6px">📝 Note an den Coach — diese Woche</div>
+    <textarea id="coach-note-ta" rows="3" placeholder="Kontext, den die Daten nicht sehen: Drill-Details, warum abgebrochen, was anders war…" style="width:100%;border:1px solid var(--b1);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit;font-size:13px;padding:8px;resize:vertical">${escNote(note)}</textarea>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+      <button class="btn btnp" style="font-size:12px;padding:6px 14px" onclick="saveCoachNote()">Speichern</button>
+      <span id="coach-note-st" style="font-size:11px;color:var(--mu)"></span>
+    </div></div>`;
+}
+async function saveCoachNote(){
+  const ta=el('coach-note-ta');if(!ta)return;
+  const note=ta.value.trim();
+  ss('coach_note',note);
+  await sbReq('weekly_notes','POST',{week_start:dk(wmon(new Date())),note:note,updated_at:new Date().toISOString()});
+  const st=el('coach-note-st');if(st){st.textContent='✓ gespeichert — der Coach liest es Sonntag';setTimeout(()=>st.textContent='',2500);}
+}
+
 function renderToday(){
   const tdkey=dkToday();
   const data=ld(tdkey);
@@ -781,6 +805,9 @@ function renderToday(){
 
   // Tournament countdown
   h+=tournamentCountdownHtml();
+
+  // Weekly note to the coach
+  h+=coachNoteHtml();
 
   // Golf practice — clickable pills (habits / fitness / nutrition now live in the diary PWA)
   h+=practiceCardHtml();
