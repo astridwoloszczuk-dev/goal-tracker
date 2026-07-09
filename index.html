@@ -1026,6 +1026,9 @@ function deriveRoundStats(hd){
     const dv=h=>String(h.drive||'').toLowerCase(),ap=h=>String(h.app||'').toLowerCase(),sh=h=>String(h.short||'').toLowerCase(),tr=h=>String(h.trbl||'').trim().toUpperCase();
     o.drvS=played.filter(h=>dv(h)==='s').length;
     o.drvX=played.filter(h=>dv(h)==='x').length;
+    // Fault-only card: blank Drive cell = fine, so a fault-free drive on a
+    // non-par-3 counts as the FW-hit equivalent for the trends line.
+    o.fw=played.filter(h=>Number(h.par)!==3&&dv(h)==='').length;
     o.appM=played.filter(h=>ap(h)==='m').length;
     o.appW=played.filter(h=>ap(h)==='w').length;
     o.appX=played.filter(h=>ap(h)==='x').length;
