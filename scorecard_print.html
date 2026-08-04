@@ -64,6 +64,8 @@ body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000
 .tbox  { width: 10mm; height: 7.5mm; border: 0.6pt solid #b91c1c; border-radius: 1pt; background: #fff7f7; }
 
 /* NOTES (back) */
+.takeaway-block { border-top: 0.6pt solid #000; margin-top: 2mm; padding-top: 1.5mm; flex-shrink: 0; }
+.takeaway-opts { font-size: 6pt; letter-spacing: 0.1pt; margin-bottom: 2.5mm; }
 .notes-block { flex: 1; border-top: 0.6pt solid #000; margin-top: 2mm; padding-top: 1.5mm; display: flex; flex-direction: column; min-height: 0; }
 .notes-heading { font-size: 5.5pt; text-transform: uppercase; letter-spacing: 0.5pt; color: #888; margin-bottom: 1.5mm; flex-shrink: 0; }
 .notes-lines { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
@@ -120,7 +122,7 @@ function legend() {
   return `
     <div class="legend">
       <div><b>BLANK = FINE — mark only faults.</b> &nbsp;<b>Drive</b> <b>s</b> advantage lost · <b>x</b> green gone (x, no Trbl = obstructed)</div>
-      <div><b>App</b> = all tee→green shots (P3: tee · P5: 2nd+3rd), worst counts: <b>m</b> missed the quadrant — outside 30ft, <i>any club</i> · <b>x</b> dead, any club</div>
+      <div><b>App</b> = all tee→green shots (P3: tee · P5: 2nd+3rd), worst counts: <b>m</b> missed the quadrant · <b>x</b> dead</div>
       <div><b>Short</b> <b>c</b> choked a makeable save &nbsp;·&nbsp; <b>Putts</b> count &nbsp;·&nbsp; <b>Trbl</b> <span class="lg red">W</span> water · <span class="lg red">O</span> OB · <span class="lg red">U</span> unplayable <b>= stroke</b> · FB/GB bunker <b>= no stroke</b></div>
     </div>`;
 }
@@ -149,7 +151,7 @@ function frontCard() {
 function backCard() {
   let holes = '';
   for (let i = 9; i < 18; i++) holes += holeRow(i);
-  const lines = Array(5).fill('<div class="notes-line-rule"></div>').join('');
+  const lines = Array(4).fill('<div class="notes-line-rule"></div>').join('');
   return `
   <div class="card">
     <div class="back-header">
@@ -158,6 +160,11 @@ function backCard() {
     </div>
     ${colHeaders()}
     <div class="holes">${holes}</div>
+    <div class="takeaway-block">
+      <div class="notes-heading">The one thing that worked — circle one, always</div>
+      <div class="takeaway-opts">Driving &middot; Approach &middot; Short game &middot; Putting &middot; Course mgmt &middot; Head</div>
+      <div class="notes-line-rule"></div>
+    </div>
     <div class="notes-block">
       <div class="notes-heading">Notes</div>
       <div class="notes-lines">${lines}</div>
