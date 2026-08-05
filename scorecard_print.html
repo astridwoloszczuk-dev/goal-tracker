@@ -40,13 +40,16 @@ body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000
 .back-title { font-size: 7.5pt; font-weight: bold; }
 .back-sub   { font-size: 5.5pt; color: #666; }
 
-/* COLUMNS — # Par Score Drive GIR App Short Putts Trbl (sum 84mm, fits 87mm content) */
-.col-hdr, .hole-row { display: grid; grid-template-columns: 5.5mm 7mm 11mm 10.5mm 9mm 10.5mm 10.5mm 8mm 12mm; }
+/* COLUMNS — # Par Score Drive GIR App Short Putts Trbl Cmt (sum 84.5mm, fits 87mm)
+   Commitment joined 5 Aug 2026 (Wes). Everything else gave up a little width for
+   it; the boxes below shrank to match, or they overflow their cells on paper. */
+.col-hdr, .hole-row { display: grid; grid-template-columns: 5mm 6mm 10mm 8.5mm 8mm 8.5mm 8.5mm 6.5mm 10mm 13.5mm; }
 .col-hdr { margin-bottom: 0.5mm; flex-shrink: 0; }
 .ch { font-size: 5.2pt; text-align: center; font-weight: bold; text-transform: uppercase; letter-spacing: 0.2pt; padding: 0.8mm 0; }
 .ch.left  { text-align: left; font-size: 4.5pt; color: #777; }
 .ch.green { color: #15803d; }
 .ch.red   { color: #b91c1c; }
+.ch.cmt   { color: #7c3aed; }
 
 .holes { display: flex; flex-direction: column; }
 .hole-row { height: 10.5mm; border-bottom: 0.25pt solid #d0d0d0; align-items: center; }
@@ -58,12 +61,29 @@ body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000
 
 .score-box { width: 9.5mm; height: 8mm; border: 0.7pt solid #000; border-radius: 1.5pt; background: #fff; }
 .pbox  { width: 5mm;  height: 7mm;   border: 0.5pt solid #999; border-radius: 1pt; background: #fff; }
-.sbox  { width: 7.5mm; height: 7.5mm; border: 0.6pt solid #555; border-radius: 1pt; background: #fff; }
+.sbox  { width: 7mm; height: 7.5mm; border: 0.6pt solid #555; border-radius: 1pt; background: #fff; }
+.pubox { width: 5.5mm; height: 7.5mm; border: 0.6pt solid #b91c1c; border-radius: 1pt; background: #fff7f7; }
+/* One dot per shot you were not fully committed to. Wide on purpose: a hole can
+   take five of them, and a box you cannot fit the answer in gets left blank. */
+.cbox  { width: 12.5mm; height: 7.5mm; border: 0.6pt solid #7c3aed; border-radius: 1pt; background: #faf5ff; }
 .sbox.green { border-color: #16a34a; background: #f0fdf4; }
 .sbox.red   { border-color: #b91c1c; background: #fff7f7; }
-.tbox  { width: 10mm; height: 7.5mm; border: 0.6pt solid #b91c1c; border-radius: 1pt; background: #fff7f7; }
+.tbox  { width: 9mm; height: 7.5mm; border: 0.6pt solid #b91c1c; border-radius: 1pt; background: #fff7f7; }
 
 /* NOTES (back) */
+/* Two boxes, not one. A single tick cannot tell "it was off" from "I did not
+   answer", and those are different facts. Deliberately the LAST thing before the
+   notes: qualitative colour goes in the notes, these three do not - they are the
+   ones you cannot deduce from the card, since she can score well with all three
+   off. That is the test a new field has to pass. */
+.ticks-block { border-top: 0.6pt solid #000; margin-top: 2mm; padding-top: 1.5mm; flex-shrink: 0; }
+.ticks-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5mm; margin-bottom: 2mm; }
+.tick-item { display: flex; flex-direction: column; gap: 1mm; }
+.tick-lbl { font-size: 5.2pt; line-height: 1.25; color: #444; }
+.tick-yn { display: flex; gap: 1.5mm; }
+.yn { width: 5mm; height: 5mm; border: 0.6pt solid #555; border-radius: 1pt; background: #fff;
+      font-size: 4.5pt; color: #aaa; display: flex; align-items: flex-end; justify-content: flex-end;
+      padding: 0 0.3mm; }
 .takeaway-block { border-top: 0.6pt solid #000; margin-top: 2mm; padding-top: 1.5mm; flex-shrink: 0; }
 .takeaway-opts { font-size: 6pt; letter-spacing: 0.1pt; margin-bottom: 2.5mm; }
 .notes-block { flex: 1; border-top: 0.6pt solid #000; margin-top: 2mm; padding-top: 1.5mm; display: flex; flex-direction: column; min-height: 0; }
@@ -98,8 +118,9 @@ function holeRow(i) {
       <div class="cell"><div class="sbox green"></div></div>
       <div class="cell"><div class="sbox"></div></div>
       <div class="cell"><div class="sbox"></div></div>
-      <div class="cell"><div class="sbox red"></div></div>
+      <div class="cell"><div class="pubox"></div></div>
       <div class="cell"><div class="tbox"></div></div>
+      <div class="cell"><div class="cbox"></div></div>
     </div>`;
 }
 
@@ -115,6 +136,7 @@ function colHeaders() {
       <div class="ch">Short</div>
       <div class="ch red">Putts</div>
       <div class="ch red">Trbl</div>
+      <div class="ch cmt">Cmt</div>
     </div>`;
 }
 
@@ -123,6 +145,7 @@ function legend() {
     <div class="legend">
       <div><b>BLANK = FINE — mark only faults.</b> &nbsp;<b>Drive</b> <b>s</b> advantage lost · <b>x</b> green gone (x, no Trbl = obstructed)</div>
       <div><b>App</b> = all tee→green shots (P3: tee · P5: 2nd+3rd), worst counts: <b>m</b> missed the quadrant · <b>x</b> dead</div>
+      <div><b class="lg" style="color:#7c3aed">Cmt</b> one dot per shot you were <b>not fully committed</b> to — marked after the shot, not before &nbsp;·&nbsp; blank = all of them committed</div>
       <div><b>Short</b> <b>c</b> choked a makeable save &nbsp;·&nbsp; <b>Putts</b> count &nbsp;·&nbsp; <b>Trbl</b> <span class="lg red">W</span> water · <span class="lg red">O</span> OB · <span class="lg red">U</span> unplayable <b>= stroke</b> · FB/GB bunker <b>= no stroke</b></div>
     </div>`;
 }
@@ -151,7 +174,7 @@ function frontCard() {
 function backCard() {
   let holes = '';
   for (let i = 9; i < 18; i++) holes += holeRow(i);
-  const lines = Array(4).fill('<div class="notes-line-rule"></div>').join('');
+  const lines = Array(3).fill('<div class="notes-line-rule"></div>').join('');
   return `
   <div class="card">
     <div class="back-header">
@@ -160,6 +183,17 @@ function backCard() {
     </div>
     ${colHeaders()}
     <div class="holes">${holes}</div>
+    <div class="ticks-block">
+      <div class="notes-heading">Three for Wes — tick one box each</div>
+      <div class="ticks-row">
+        <div class="tick-item"><span class="tick-lbl">Shot shape<br>under control?</span>
+          <span class="tick-yn"><span class="yn">✓</span><span class="yn">✗</span></span></div>
+        <div class="tick-item"><span class="tick-lbl">Pattern in the<br>misses spotted?</span>
+          <span class="tick-yn"><span class="yn">✓</span><span class="yn">✗</span></span></div>
+        <div class="tick-item"><span class="tick-lbl">Right clubs<br>selected?</span>
+          <span class="tick-yn"><span class="yn">✓</span><span class="yn">✗</span></span></div>
+      </div>
+    </div>
     <div class="takeaway-block">
       <div class="notes-heading">The one thing that worked — circle one, always</div>
       <div class="takeaway-opts">Driving &middot; Approach &middot; Short game &middot; Putting &middot; Course mgmt &middot; Head</div>
