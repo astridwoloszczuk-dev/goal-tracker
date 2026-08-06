@@ -69,7 +69,11 @@ body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000
 .score-box { width: 9mm; height: 8mm; border: 0.7pt solid #000; border-radius: 1.5pt; background: #fff; }
 .pbox  { width: 5mm;  height: 7mm;   border: 0.5pt solid #999; border-radius: 1pt; background: #fff; }
 .sbox  { width: 6.8mm; height: 7.5mm; border: 0.6pt solid #555; border-radius: 1pt; background: #fff; }
-/* Match column: + won the hole, - lost it, ½ halved. Left BLANK on a hole that
+/* MP = matchplay, the standard abbreviation and — unlike the "Mt" it replaces —
+   not one letter away from Cmt (commitment). With the legend cut back to the
+   Trbl codes the column headers carry the whole explanation, so they have to be
+   unmistakable at a glance with a pencil in your hand.
+   + won the hole, - lost it, . halved. Left BLANK on a hole that
    was conceded either way and never played out - the margin carries the match,
    the card carries the golf, and neither has to guess a score for the other. */
 .mbox  { width: 4.2mm; height: 7.5mm; border: 0.6pt solid #0369a1; border-radius: 1pt; background: #f0f9ff; }
@@ -140,7 +144,7 @@ function colHeaders() {
   return `
     <div class="col-hdr">
       <div class="ch left">#</div>
-      <div class="ch mt">Mt</div>
+      <div class="ch mt">MP</div>
       <div class="ch">Par</div>
       <div class="ch">Score</div>
       <div class="ch">Drive</div>
