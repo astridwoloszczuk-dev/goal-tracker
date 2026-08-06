@@ -188,14 +188,18 @@ function frontCard() {
       <span class="hf-lbl hf-lbl2">Tee</span><div class="hf-line hf-line2"></div></div>
     ${colHeaders()}
     <div class="holes">${holes}</div>
-    ${legend()}
+    <div class="notes-block">
+      <div class="notes-heading">Notes</div>
+      <!-- six lines: the front has ~20mm spare once the legend moved off it, and
+           notes you cannot fit are notes you do not write -->
+      <div class="notes-lines">${Array(6).fill('<div class="notes-line-rule"></div>').join('')}</div>
+    </div>
   </div>`;
 }
 
 function backCard() {
   let holes = '';
   for (let i = 9; i < 18; i++) holes += holeRow(i);
-  const lines = Array(1).fill('<div class="notes-line-rule"></div>').join('');
   return `
   <div class="card">
     <div class="back-header">
@@ -218,10 +222,7 @@ function backCard() {
       <div class="takeaway-opts">Driving &middot; Approach &middot; Short game &middot; Putting &middot; Course mgmt &middot; Head</div>
       <div class="notes-line-rule"></div>
     </div>
-    <div class="notes-block">
-      <div class="notes-heading">Notes</div>
-      <div class="notes-lines">${lines}</div>
-    </div>
+    ${legend()}
   </div>`;
 }
 
