@@ -40,16 +40,18 @@ body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000
 .back-title { font-size: 7.5pt; font-weight: bold; }
 .back-sub   { font-size: 5.5pt; color: #666; }
 
-/* COLUMNS — # Par Score Drive GIR App Short Putts Trbl Cmt (sum 84.5mm, fits 87mm)
-   Commitment joined 5 Aug 2026 (Wes). Everything else gave up a little width for
-   it; the boxes below shrank to match, or they overflow their cells on paper. */
-.col-hdr, .hole-row { display: grid; grid-template-columns: 5mm 6mm 10mm 8.5mm 8mm 8.5mm 8.5mm 6.5mm 10mm 13.5mm; }
+/* COLUMNS — # Mt Par Score Drive GIR App Short Putts Trbl Cmt (86.5mm of 87mm)
+   Mt = the match column, added 6 Aug. She ALREADY writes + - ½ on a separate
+   scorecard during a match, so this costs nothing and retires the second card.
+   Everything else gave up a fraction to fit it. */
+.col-hdr, .hole-row { display: grid; grid-template-columns: 5mm 5mm 6mm 9.5mm 8.5mm 7.5mm 8.5mm 8.5mm 6mm 9.5mm 12.5mm; }
 .col-hdr { margin-bottom: 0.5mm; flex-shrink: 0; }
 .ch { font-size: 5.2pt; text-align: center; font-weight: bold; text-transform: uppercase; letter-spacing: 0.2pt; padding: 0.8mm 0; }
 .ch.left  { text-align: left; font-size: 4.5pt; color: #777; }
 .ch.green { color: #15803d; }
 .ch.red   { color: #b91c1c; }
 .ch.cmt   { color: #7c3aed; }
+.ch.mt    { color: #0369a1; }
 
 .holes { display: flex; flex-direction: column; }
 .hole-row { height: 10.5mm; border-bottom: 0.25pt solid #d0d0d0; align-items: center; }
@@ -59,16 +61,20 @@ body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000
 .cell.left { justify-content: flex-start; }
 .hole-num { font-size: 7pt; font-weight: bold; color: #333; }
 
-.score-box { width: 9.5mm; height: 8mm; border: 0.7pt solid #000; border-radius: 1.5pt; background: #fff; }
+.score-box { width: 9mm; height: 8mm; border: 0.7pt solid #000; border-radius: 1.5pt; background: #fff; }
 .pbox  { width: 5mm;  height: 7mm;   border: 0.5pt solid #999; border-radius: 1pt; background: #fff; }
-.sbox  { width: 7mm; height: 7.5mm; border: 0.6pt solid #555; border-radius: 1pt; background: #fff; }
+.sbox  { width: 6.8mm; height: 7.5mm; border: 0.6pt solid #555; border-radius: 1pt; background: #fff; }
+/* Match column: + won the hole, - lost it, ½ halved. Left BLANK on a hole that
+   was conceded either way and never played out - the margin carries the match,
+   the card carries the golf, and neither has to guess a score for the other. */
+.mbox  { width: 4.2mm; height: 7.5mm; border: 0.6pt solid #0369a1; border-radius: 1pt; background: #f0f9ff; }
 .pubox { width: 5.5mm; height: 7.5mm; border: 0.6pt solid #b91c1c; border-radius: 1pt; background: #fff7f7; }
 /* One dot per shot you were not fully committed to. Wide on purpose: a hole can
    take five of them, and a box you cannot fit the answer in gets left blank. */
-.cbox  { width: 12.5mm; height: 7.5mm; border: 0.6pt solid #7c3aed; border-radius: 1pt; background: #faf5ff; }
+.cbox  { width: 11.5mm; height: 7.5mm; border: 0.6pt solid #7c3aed; border-radius: 1pt; background: #faf5ff; }
 .sbox.green { border-color: #16a34a; background: #f0fdf4; }
 .sbox.red   { border-color: #b91c1c; background: #fff7f7; }
-.tbox  { width: 9mm; height: 7.5mm; border: 0.6pt solid #b91c1c; border-radius: 1pt; background: #fff7f7; }
+.tbox  { width: 8.5mm; height: 7.5mm; border: 0.6pt solid #b91c1c; border-radius: 1pt; background: #fff7f7; }
 
 /* NOTES (back) */
 /* Two boxes, not one. A single tick cannot tell "it was off" from "I did not
@@ -112,6 +118,7 @@ function holeRow(i) {
   return `
     <div class="hole-row">
       <div class="cell left"><span class="hole-num">${i+1}</span></div>
+      <div class="cell"><div class="mbox"></div></div>
       <div class="cell"><div class="pbox">${p != null ? p : ''}</div></div>
       <div class="cell"><div class="score-box"></div></div>
       <div class="cell"><div class="sbox"></div></div>
@@ -128,6 +135,7 @@ function colHeaders() {
   return `
     <div class="col-hdr">
       <div class="ch left">#</div>
+      <div class="ch mt">Mt</div>
       <div class="ch">Par</div>
       <div class="ch">Score</div>
       <div class="ch">Drive</div>
@@ -145,6 +153,7 @@ function legend() {
     <div class="legend">
       <div><b>BLANK = FINE — mark only faults.</b> &nbsp;<b>Drive</b> <b>s</b> advantage lost · <b>x</b> green gone (x, no Trbl = obstructed)</div>
       <div><b>App</b> = all tee→green shots (P3: tee · P5: 2nd+3rd), worst counts: <b>m</b> missed the quadrant (7i or shorter) · <b>x</b> dead, any club</div>
+      <div><b class="lg" style="color:#0369a1">Mt</b> matchplay only: <b>+</b> won the hole &middot; <b>&minus;</b> lost it &middot; <b>&frac12;</b> halved &nbsp;&middot;&nbsp; conceded hole = mark it and leave the SCORE blank, never guess</div>
       <div><b class="lg" style="color:#7c3aed">Cmt</b> one dot per shot you were <b>not fully committed</b> to — marked after the shot, not before &nbsp;·&nbsp; blank = all of them committed</div>
       <div><b>Short</b> <b>c</b> choked a makeable save &nbsp;·&nbsp; <b>Putts</b> count &nbsp;·&nbsp; <b>Trbl</b> <span class="lg red">W</span> water · <span class="lg red">O</span> OB · <span class="lg red">U</span> unplayable <b>= stroke</b> · FB/GB bunker <b>= no stroke</b></div>
     </div>`;
