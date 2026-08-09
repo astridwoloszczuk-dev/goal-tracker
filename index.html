@@ -799,8 +799,13 @@ function renderToday(){
     </div>`;
   }
 
-  // Mirror putting — daily 5-min habit, one tick per day (→ daily_habits.mirror, read by the coach)
-  h+=mirrorPillsHtml();
+  // Mirror putting — RETIRED 2026-08-09, her call: not tracked for the moment.
+  // The row is hidden, not deleted — mirrorPillsHtml/toggleMirror/syncMirror and
+  // the daily_habits.mirror column all stay, so past ticks are intact and turning
+  // it back on is this one line. The coach side (goals.txt, coach.py, garmin_sync,
+  // nudge, book_it) was stripped of it the same day, so a hidden row that still
+  // rendered would be a permanently-zero row nobody chases — worse than no row.
+  // h+=mirrorPillsHtml();
   h+=stretchPillsHtml();
 
   // Tournament countdown
